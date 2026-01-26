@@ -19,8 +19,7 @@ export default function ProfilePage() {
       }
       setUser(user);
 
-      // profilesテーブルから今のニックネームを取得
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("profiles")
         .select("nickname")
         .eq("id", user.id)
@@ -34,22 +33,24 @@ export default function ProfilePage() {
 
   const updateProfile = async () => {
     setLoading(true);
+    // 修正ポイント: updated_at をプログラムから送らず、
+    // ニックネームだけを送るようにしてエラーを回避します
     const { error } = await supabase.from("profiles").upsert({
       id: user.id,
       nickname: nickname,
-      updated_at: new Date(),
+      // updated_at: new Date(), ← ここを削除しました
     });
 
     if (error) {
       alert("更新失敗: " + error.message);
     } else {
       alert("ニックネームを更新しました！");
-      router.push("/"); // トップに戻る
+      router.push("/");
     }
     setLoading(false);
   };
 
-  if (loading) return <div className="min-h-screen bg-[#1A3A34] flex items-center justify-center text-white">読み込み中...</div>;
+  if (loading) return <div className="min-h-screen bg-[#1A3A34] flex items-center justify-center text-white italic">Loading...</div>;
 
   return (
     <main className="relative min-h-screen w-full flex flex-col items-center justify-center bg-[#1A3A34] overflow-hidden">
@@ -57,22 +58,22 @@ export default function ProfilePage() {
       
       <div className="relative z-20 w-full max-w-sm px-4">
         <div className="bg-white/10 backdrop-blur-md p-8 rounded-[24px] shadow-2xl border border-white/20 text-center">
-          <h1 className="text-2xl font-black text-white mb-6 tracking-widest italic">USER PROFILE</h1>
+          <h1 className="text-2xl font-black text-white mb-6 tracking-widest italic uppercase">Edit Profile</h1>
           
           <div className="mb-8">
             <div className="w-20 h-20 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl mx-auto flex items-center justify-center text-3xl shadow-lg mb-2">
-              🍜
+              👤
             </div>
-            <p className="text-white/50 text-xs">{user?.email}</p>
+            <p className="text-white/40 text-[10px] tracking-widest uppercase">{user?.email}</p>
           </div>
 
           <div className="flex flex-col gap-6">
             <div className="text-left">
-              <label className="text-white/70 text-xs font-bold ml-1 mb-2 block uppercase tracking-tighter">Nickname</label>
+              <label className="text-white/70 text-[10px] font-black ml-1 mb-2 block uppercase tracking-[0.2em]">Nickname</label>
               <input
                 type="text"
-                placeholder="例: 麺匠さすらい人"
-                className="w-full bg-white/10 border border-white/20 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                placeholder="ニックネームを入力"
+                className="w-full bg-white/10 border border-white/20 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-500 transition-all placeholder:text-white/20"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
               />
@@ -81,17 +82,17 @@ export default function ProfilePage() {
             <button 
               onClick={updateProfile}
               disabled={loading}
-              className="bg-gradient-to-r from-yellow-500 to-orange-600 text-white p-4 rounded-xl font-black shadow-xl hover:brightness-110 transition-all disabled:opacity-50"
+              className="bg-gradient-to-r from-yellow-500 to-orange-600 text-white p-4 rounded-xl font-black shadow-xl hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
             >
-              SAVE CHANGES
+              {loading ? "SAVING..." : "SAVE CHANGES"}
             </button>
 
             <button 
               type="button" 
               onClick={() => router.push("/")}
-              className="text-white/50 text-xs font-bold hover:text-white transition-colors"
+              className="text-white/40 text-[10px] font-black hover:text-white transition-colors tracking-widest uppercase"
             >
-              戻る
+              Back to Home
             </button>
           </div>
         </div>
