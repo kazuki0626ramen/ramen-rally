@@ -123,6 +123,16 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* --- 追加：タイムラインボタン --- */}
+      <button 
+        onClick={() => router.push("/timeline")}
+        className="w-full max-w-md mb-3 bg-white text-orange-600 py-4 rounded-[24px] font-black italic shadow-sm border-2 border-orange-100 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+      >
+        <span className="text-xl">🌐</span>
+        <span className="tracking-widest uppercase">World Timeline</span>
+      </button>
+
+      {/* --- ランキングボタン --- */}
       <button onClick={() => router.push("/ranking")} className="w-full max-w-md mb-8 bg-gradient-to-r from-orange-600 to-orange-400 text-white py-4 rounded-[24px] font-black italic shadow-lg shadow-orange-200 flex items-center justify-center gap-3 active:scale-95 transition-transform">
         <span className="text-xl">🏆</span><span className="tracking-widest uppercase">View World Ranking</span>
       </button>
@@ -142,7 +152,6 @@ export default function HomePage() {
             <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex flex-col gap-3 transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  {/* ★アイコン部分を写真に置き換えるロジック */}
                   <div className={`w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center text-2xl transition-all duration-500 shadow-inner ${isGot ? "bg-orange-100" : "bg-slate-50 opacity-40 grayscale"}`}>
                     {myLatestDiary?.image_url ? (
                       <img src={myLatestDiary.image_url} alt="ramen" className="w-full h-full object-cover" />
