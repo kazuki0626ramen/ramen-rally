@@ -12,7 +12,6 @@ export default function TimelinePage() {
   const router = useRouter();
 
   const fetchTimeline = async () => {
-    // setLoading(true); // 再読み込み時はガクつかないようLoadingは初回のみ
     try {
       const { data: diaries, error: dError } = await supabase
         .from("diaries")
@@ -24,12 +23,22 @@ export default function TimelinePage() {
       if (!diaries) return setPosts([]);
 
       const postsWithData = await Promise.all(diaries.map(async (diary) => {
-        // 各データを個別に取得（安定性重視）
+        // 各データを個別に取得
         const [prof, shp, lk, cm] = await Promise.all([
           supabase.from("profiles").select("nickname").eq("id", diary.user_id).single(),
           supabase.from("shops").select("name").eq("id", diary.shop_id).single(),
           supabase.from("likes").select('*', { count: 'exact', head: true }).eq("diary_id", diary.id),
-          supabase.from("comments").select("*, profiles(nickname)").eq("diary_id", diary.id).order('created_at', { ascending: true })
+          // コメント取得時に、書いた人のニックネームも確実に結合する
+          supabase.from("comments")
+            .select(`
+              id,
+              content,
+              created_at,
+              user_id,
+              profiles:user_id (nickname)
+            `)
+            .eq("diary_id", diary.id)
+            .order('created_at', { ascending: true })
         ]);
 
         return {
@@ -51,14 +60,16 @@ export default function TimelinePage() {
 
   useEffect(() => { fetchTimeline(); }, []);
 
+  // いいね処理（変更なし）
   const handleLike = async (diaryId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("ログインが必要です");
     const { error } = await supabase.from("likes").insert({ user_id: user.id, diary_id: diaryId });
     if (error) await supabase.from("likes").delete().eq("user_id", user.id).eq("diary_id", diaryId);
-    fetchTimeline(); // 状態更新
+    fetchTimeline();
   };
 
+  // コメント送信（ここを強化しました）
   const handleSendComment = async (diaryId: string) => {
     const text = commentText[diaryId];
     if (!text?.trim()) return;
@@ -66,22 +77,25 @@ export default function TimelinePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("ログインが必要です");
 
-    try {
-      const { error } = await supabase.from("comments").insert({ 
-        user_id: user.id, 
-        diary_id: diaryId, 
-        content: text 
-      });
+    // 送信ボタンを連打できないように、一旦テキストを消す
+    const currentText = text;
+    setCommentText({ ...commentText, [diaryId]: "" });
 
-      if (error) throw error;
+    const { error } = await supabase.from("comments").insert({ 
+      user_id: user.id, 
+      diary_id: diaryId, 
+      content: currentText 
+    });
 
-      // 送信成功したら入力欄をクリアして即座に再取得
-      setCommentText({ ...commentText, [diaryId]: "" });
-      // setShowCommentInput({ ...showCommentInput, [diaryId]: false }); // 送信後も入力欄を閉じない方が連続投稿しやすいので維持
-      await fetchTimeline(); 
-    } catch (err) {
-      alert("コメントの送信に失敗しました");
-      console.error(err);
+    if (error) {
+      console.error("Comment Insert Error:", error);
+      alert("送信に失敗しました。もう一度お試しください。");
+      setCommentText({ ...commentText, [diaryId]: currentText }); // 失敗したら戻す
+    } else {
+      // 送信完了後、少しだけ待ってから再取得（Supabase側の反映ラグ対策）
+      setTimeout(() => {
+        fetchTimeline();
+      }, 500);
     }
   };
 
@@ -98,7 +112,6 @@ export default function TimelinePage() {
         <div className="space-y-10">
           {posts.map((post) => (
             <div key={post.id} className="bg-white rounded-[32px] overflow-hidden shadow-xl shadow-orange-100/30 border border-white">
-              {/* ヘッダー */}
               <div className="p-4 flex items-center gap-3">
                 <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center text-xl shadow-inner">🍜</div>
                 <div>
@@ -118,11 +131,10 @@ export default function TimelinePage() {
                   </h3>
                   <span className="text-orange-500">{"⭐".repeat(post.rating)}</span>
                 </div>
-                <p className="text-sm text-slate-800 leading-relaxed mb-6 font-medium">{post.comment}</p>
+                <p className="text-sm text-slate-900 leading-relaxed mb-6 font-bold">{post.comment}</p>
 
-                {/* アクションボタン */}
                 <div className="flex gap-6 border-t border-slate-50 pt-4 mb-4">
-                  <button onClick={() => handleLike(post.id)} className="flex items-center gap-1.5 text-slate-600 font-black text-xs active:scale-125 transition-transform">
+                  <button onClick={() => handleLike(post.id)} className="flex items-center gap-1.5 text-slate-600 font-black text-xs">
                     <span className="text-red-500 text-lg">❤️</span> <span>{post.like_count}</span>
                   </button>
                   <button onClick={() => setShowCommentInput({ ...showCommentInput, [post.id]: !showCommentInput[post.id] })} className="flex items-center gap-1.5 text-slate-600 font-black text-xs">
@@ -130,31 +142,32 @@ export default function TimelinePage() {
                   </button>
                 </div>
 
-                {/* コメント一覧：文字色を濃い黒に変更 */}
+                {/* コメント表示部分（黒色、見やすく修正） */}
                 {post.comments?.length > 0 && (
-                  <div className="space-y-2 mb-4 bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                  <div className="space-y-3 mb-4 bg-slate-100/50 p-4 rounded-2xl">
                     {post.comments.map((c: any) => (
-                      <div key={c.id} className="text-[12px] leading-snug">
-                        <span className="font-black text-slate-900 mr-2">{c.profiles?.nickname || "Guest"}:</span>
-                        <span className="text-slate-900 font-medium">{c.content}</span>
+                      <div key={c.id} className="text-[13px] leading-snug text-slate-900 border-b border-white/50 pb-2 last:border-0">
+                        <span className="font-black mr-2 text-slate-900">
+                          {c.profiles?.nickname || "Guest"}:
+                        </span>
+                        <span className="font-medium text-slate-900">{c.content}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                {/* コメント入力：文字色を黒に */}
                 {showCommentInput[post.id] && (
-                  <div className="flex gap-2 mt-2 animate-in fade-in slide-in-from-top-1">
+                  <div className="flex gap-2 mt-2">
                     <input 
                       type="text" 
                       value={commentText[post.id] || ""} 
                       onChange={(e) => setCommentText({ ...commentText, [post.id]: e.target.value })} 
-                      className="flex-1 bg-slate-100 rounded-full px-4 py-2 text-sm text-slate-900 font-medium focus:outline-none focus:ring-2 focus:ring-orange-200 transition-all" 
+                      className="flex-1 bg-slate-100 rounded-full px-4 py-3 text-sm text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-orange-300" 
                       placeholder="おいしそう！"
                     />
                     <button 
                       onClick={() => handleSendComment(post.id)} 
-                      className="bg-orange-600 text-white px-5 py-2 rounded-full text-xs font-black shadow-md active:scale-95 transition-all"
+                      className="bg-orange-600 text-white px-6 py-2 rounded-full text-xs font-black shadow-md active:scale-95"
                     >
                       送信
                     </button>
