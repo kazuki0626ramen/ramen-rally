@@ -31,20 +31,21 @@ export default function DiaryPostPage() {
       if (!user) throw new Error("ログインが必要です");
 
       let imageUrl = "";
-      // 1. 画像がある場合はストレージにアップロード
       if (imageFile) {
+        // 画像名の重複を避けるためにタイムスタンプを付与
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+        
         const { error: uploadError } = await supabase.storage
           .from('diary-photos')
           .upload(fileName, imageFile);
 
         if (uploadError) throw uploadError;
+
         const { data: publicUrlData } = supabase.storage.from('diary-photos').getPublicUrl(fileName);
         imageUrl = publicUrlData.publicUrl;
       }
 
-      // 2. 日記データをDBに保存
       const { error: dbError } = await supabase.from("diaries").insert({
         user_id: user.id,
         shop_id: shopId,
@@ -55,10 +56,11 @@ export default function DiaryPostPage() {
       });
 
       if (dbError) throw dbError;
-      alert("日記を保存しました！");
+      alert("日記を保存しました！🍥");
       router.push("/");
     } catch (err: any) {
-      alert(err.message);
+      console.error(err);
+      alert("保存に失敗しました: " + (err.message || "権限エラー"));
     } finally {
       setLoading(false);
     }
@@ -67,17 +69,22 @@ export default function DiaryPostPage() {
   return (
     <main className="p-6 bg-[#FFF9F5] min-h-screen font-sans">
       <div className="max-w-md mx-auto">
-        <button onClick={() => router.back()} className="mb-4 text-slate-400 font-bold">← 戻る</button>
-        <h1 className="text-2xl font-black text-slate-800 mb-1">{shopName}</h1>
-        <p className="text-sm text-orange-500 font-bold mb-6 italic uppercase tracking-widest">Noodle Log</p>
+        <button onClick={() => router.back()} className="mb-4 text-slate-400 font-bold flex items-center gap-1">
+          <span>←</span> <span>戻る</span>
+        </button>
+        
+        <div className="mb-6">
+          <h1 className="text-2xl font-black text-slate-800 leading-tight">{shopName}</h1>
+          <p className="text-[10px] text-orange-500 font-black italic uppercase tracking-[0.2em]">Add Your Ramen Log</p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-[32px] shadow-lg border border-white">
+        <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 rounded-[32px] shadow-xl border border-white/50">
           {/* 星評価 */}
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase mb-2">Rating</label>
-            <div className="flex gap-2">
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Rating</label>
+            <div className="flex gap-3 bg-slate-50 p-3 rounded-2xl justify-center">
               {[1, 2, 3, 4, 5].map((num) => (
-                <button key={num} type="button" onClick={() => setRating(num)} className="text-3xl transition-transform active:scale-125">
+                <button key={num} type="button" onClick={() => setRating(num)} className="text-3xl transition-all active:scale-125">
                   {num <= rating ? "⭐" : "☆"}
                 </button>
               ))}
@@ -86,24 +93,46 @@ export default function DiaryPostPage() {
 
           {/* 写真アップロード */}
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase mb-2">Photo</label>
-            <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files?.[0] || null)} className="text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-black file:bg-orange-50 file:text-orange-600 hover:file:bg-orange-100" />
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Photo</label>
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={(e) => setImageFile(e.target.files?.[0] || null)} 
+              className="w-full text-[10px] text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:bg-orange-50 file:text-orange-600 hover:file:bg-orange-100 transition-all" 
+            />
           </div>
 
-          {/* コメント */}
+          {/* コメント：文字色を濃い黒（slate-900）に修正 */}
           <div>
-            <label className="block text-xs font-black text-slate-400 uppercase mb-2">Comment</label>
-            <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="今日の一杯はどうだった？" className="w-full h-24 p-4 bg-slate-50 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-200" />
+            <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Comment</label>
+            <textarea 
+              value={comment} 
+              onChange={(e) => setComment(e.target.value)} 
+              placeholder="スープの味や麺の感想をメモ..." 
+              className="w-full h-32 p-4 bg-slate-50 rounded-2xl text-sm text-slate-900 font-medium placeholder:text-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all" 
+            />
           </div>
 
           {/* 公開設定 */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl">
-            <span className="text-xs font-black text-slate-600 uppercase">Make Public (X)</span>
-            <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="w-5 h-5 accent-orange-500" />
+          <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black text-slate-600 uppercase">Publish to Timeline</span>
+              <span className="text-[8px] text-slate-400 font-bold">他のユーザーに公開しますか？</span>
+            </div>
+            <input 
+              type="checkbox" 
+              checked={isPublic} 
+              onChange={(e) => setIsPublic(e.target.checked)} 
+              className="w-6 h-6 accent-orange-500 rounded-lg" 
+            />
           </div>
 
-          <button type="submit" disabled={loading} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all disabled:opacity-50">
-            {loading ? "Saving..." : "Save Diary 🍥"}
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black uppercase tracking-[0.2em] shadow-lg shadow-slate-200 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {loading ? "Processing..." : "Save Diary 🍥"}
           </button>
         </form>
       </div>
