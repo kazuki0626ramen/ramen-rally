@@ -132,7 +132,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* --- 追加：ランキングページへのボタン --- */}
       <button 
         onClick={() => router.push("/ranking")}
         className="w-full max-w-md mb-8 bg-gradient-to-r from-orange-600 to-orange-400 text-white py-4 rounded-[24px] font-black italic shadow-lg shadow-orange-200 flex items-center justify-center gap-3 active:scale-95 transition-transform"
@@ -164,16 +163,20 @@ export default function HomePage() {
                     <h4 className={`font-black tracking-tight leading-none mb-1 ${isGot ? "text-slate-800" : "text-slate-300"}`}>
                       {shop.name}
                     </h4>
-                    {isGot ? (
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] text-orange-500 font-bold uppercase tracking-widest">Visited</p>
+                    <div className="flex items-center gap-2">
+                      {isGot && (
                         <p className="text-[9px] text-slate-400 font-medium tracking-tighter bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
                           {formatDate(myStamp.created_at)}
                         </p>
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Not Visited</p>
-                    )}
+                      )}
+                      {/* --- 追加：日記ページへのボタン --- */}
+                      <button 
+                        onClick={() => router.push(`/diary/${shop.id}`)}
+                        className="text-[9px] text-orange-600 font-black uppercase tracking-tighter bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 active:bg-orange-200 transition-colors"
+                      >
+                        📝 Log
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
