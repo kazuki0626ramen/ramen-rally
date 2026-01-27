@@ -8,121 +8,121 @@ export default function HomePage() {
   const [masterShops, setMasterShops] = useState<any[]>([]);
   const [visitedShopIds, setVisitedShopIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userName, setUserName] = useState("麺活プレイヤー");
 
   useEffect(() => {
     fetchRallyData();
   }, []);
 
   const fetchRallyData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: prof } = await supabase.from("profiles").select("nickname").eq("id", user.id).single();
-      if (prof?.nickname) setUserName(prof.nickname);
-    }
-    
-    // 1. 全50店舗を取得
-    const { data: shops } = await supabase.from("master_shops").select("*").order("area", { ascending: false });
-    
-    // 2. 自分が投稿済みの公式店舗IDを取得
-    const { data: diaries } = await supabase
-      .from("diaries")
-      .select("master_shop_id")
-      .eq("user_id", user?.id)
-      .not("master_shop_id", "is", null);
+    try {
+      // 1. 現在のログインユーザーを取得
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // 2. 公式50店舗を取得
+      const { data: shops } = await supabase
+        .from("master_shops")
+        .select("*")
+        .order("area", { ascending: false });
 
-    if (shops) setMasterShops(shops);
-    if (diaries) {
-      const ids = diaries.map(d => d.master_shop_id);
-      setVisitedShopIds(Array.from(new Set(ids))); // 重複排除
+      // 3. ユーザーが投稿した公式店舗のIDリストを取得
+      if (user) {
+        const { data: diaries } = await supabase
+          .from("diaries")
+          .select("master_shop_id")
+          .eq("user_id", user.id)
+          .not("master_shop_id", "is", null);
+
+        if (diaries) {
+          const ids = diaries.map(d => d.master_shop_id);
+          setVisitedShopIds(Array.from(new Set(ids))); // 重複を排除
+        }
+      }
+
+      if (shops) setMasterShops(shops);
+    } catch (error) {
+      console.error("データ取得エラー:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const progress = Math.round((visitedShopIds.length / 50) * 100);
+  // 進捗率の計算
+  const progress = masterShops.length > 0 
+    ? Math.round((visitedShopIds.length / masterShops.length) * 100) 
+    : 0;
 
-  if (loading) return <div className="flex h-screen items-center justify-center font-black italic text-orange-500">LOADING...</div>;
+  if (loading) return <div className="flex h-screen items-center justify-center font-black text-orange-500 italic">LOADING RALLY...</div>;
 
   return (
-    <main className="p-4 bg-[#FFF9F5] min-h-screen pb-24">
+    <main className="p-4 bg-[#FFF9F5] min-h-screen pb-24 text-slate-900">
       <div className="max-w-md mx-auto">
-        {/* ヘッダー */}
-        <header className="py-6">
-          <p className="text-[10px] font-black text-orange-500 tracking-widest uppercase mb-1">Tokyo & Kanagawa 2026</p>
-          <h1 className="text-4xl font-black italic text-slate-900 tracking-tighter leading-none">
-            RAMEN <br /> RALLY 50
-          </h1>
+        {/* ヘッダーセクション */}
+        <header className="py-6 flex justify-between items-end">
+          <div>
+            <p className="text-[10px] font-black text-orange-500 tracking-[0.2em] uppercase">Season 2026</p>
+            <h1 className="text-4xl font-black italic tracking-tighter leading-none">RAMEN<br/>RALLY 50</h1>
+          </div>
+          <Link href="/post" className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition">
+            POST +
+          </Link>
         </header>
 
-        {/* 進捗カード */}
+        {/* 進捗カード：ここが動くと感動します */}
         <div className="bg-slate-900 rounded-[32px] p-6 text-white shadow-2xl mb-8 relative overflow-hidden">
           <div className="relative z-10">
-            <h2 className="text-sm font-bold opacity-70 mb-1">{userName} の達成率</h2>
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-5xl font-black italic">{progress}</span>
-              <span className="text-xl font-black italic opacity-50">%</span>
+            <h2 className="text-xs font-bold opacity-60 mb-2 uppercase tracking-widest">Master Progress</h2>
+            <div className="flex items-baseline gap-1 mb-4">
+              <span className="text-6xl font-black italic leading-none">{progress}</span>
+              <span className="text-xl font-black italic opacity-40">%</span>
             </div>
             
             <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden mb-2">
               <div 
-                className="bg-gradient-to-r from-yellow-400 to-orange-500 h-full transition-all duration-1000 ease-out"
+                className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 h-full transition-all duration-1000 ease-out"
                 style={{ width: `${progress}%` }}
               />
             </div>
             <p className="text-[10px] font-bold opacity-50 text-right uppercase tracking-wider">
-              {visitedShopIds.length} / 50 shops cleared
+              {visitedShopIds.length} / {masterShops.length} SHOPS CLEARED
             </p>
           </div>
-          {/* 背景の装飾的な「麺」 */}
-          <div className="absolute -right-4 -bottom-4 text-8xl opacity-10 grayscale">🍜</div>
+          <div className="absolute -right-6 -bottom-6 text-9xl opacity-10 grayscale rotate-12">🍜</div>
         </div>
 
-        {/* アクションボタン */}
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          <Link href="/post" className="bg-orange-500 text-white p-4 rounded-3xl text-center shadow-lg shadow-orange-200 active:scale-95 transition">
-            <span className="block text-2xl mb-1">📍</span>
-            <span className="text-xs font-black uppercase">Check-in</span>
-          </Link>
-          <Link href="/timeline" className="bg-white text-slate-900 p-4 rounded-3xl text-center shadow-sm border border-slate-100 active:scale-95 transition">
-            <span className="block text-2xl mb-1">📱</span>
-            <span className="text-xs font-black uppercase">Timeline</span>
-          </Link>
-        </div>
-
-        {/* スタンプリスト（エリア別） */}
+        {/* エリア別スタンプリスト */}
         {["東京", "神奈川"].map(area => (
           <section key={area} className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-black italic uppercase tracking-tight">{area} LEGENDS</h3>
-              <span className="text-[10px] font-bold px-2 py-1 bg-slate-200 rounded-full">
-                {visitedShopIds.filter(id => masterShops.find(s => s.id === id && s.area === area)).length} / {masterShops.filter(s => s.area === area).length}
-              </span>
+            <div className="flex items-center justify-between mb-4 px-2">
+              <h3 className="text-lg font-black italic uppercase tracking-tight flex items-center gap-2">
+                <span className="w-1 h-5 bg-orange-500 rounded-full" />
+                {area} LEGENDS
+              </h3>
             </div>
             
-            <div className="grid grid-cols-1 gap-2">
+            <div className="space-y-2">
               {masterShops.filter(s => s.area === area).map(shop => {
                 const isVisited = visitedShopIds.includes(shop.id);
                 return (
                   <div 
                     key={shop.id}
-                    className={`group relative p-4 rounded-2xl flex items-center justify-between border-2 transition-all ${
+                    className={`p-4 rounded-2xl flex items-center justify-between border-2 transition-all duration-500 ${
                       isVisited 
                       ? "bg-white border-orange-200 shadow-sm" 
-                      : "bg-white/50 border-slate-100 opacity-50 grayscale"
+                      : "bg-slate-100/50 border-transparent opacity-40 grayscale"
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${isVisited ? 'bg-orange-100' : 'bg-slate-100'}`}>
-                        {isVisited ? '🧡' : '🍜'}
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${isVisited ? 'bg-orange-100' : 'bg-slate-200'}`}>
+                        {isVisited ? '⭐' : '🍲'}
                       </div>
                       <div>
-                        <p className="text-sm font-black text-slate-800 leading-none mb-1">{shop.name}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Legendary 100 Selected</p>
+                        <p className="text-sm font-black text-slate-800 leading-tight">{shop.name}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">100 Meiten Regular</p>
                       </div>
                     </div>
                     {isVisited && (
-                      <div className="bg-yellow-400 text-[8px] font-black px-2 py-1 rounded-md rotate-12 shadow-sm">
-                        CLEARED
+                      <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-sm">
+                        DONE
                       </div>
                     )}
                   </div>
