@@ -7,130 +7,117 @@ import Link from "next/link";
 export default function HomePage() {
   const [masterShops, setMasterShops] = useState<any[]>([]);
   const [visitedShopIds, setVisitedShopIds] = useState<string[]>([]);
+  const [diaries, setDiaries] = useState<any[]>([]); // タイムライン用
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchRallyData();
+    fetchData();
   }, []);
 
-  const fetchRallyData = async () => {
+  const fetchData = async () => {
     try {
-      // 1. 現在のログインユーザーを取得
       const { data: { user } } = await supabase.auth.getUser();
       
-      // 2. 公式50店舗を取得
-      const { data: shops } = await supabase
-        .from("master_shops")
-        .select("*")
-        .order("area", { ascending: false });
+      // 1. 公式マスター店舗取得
+      const { data: shops } = await supabase.from("master_shops").select("*");
+      if (shops) setMasterShops(shops);
 
-      // 3. ユーザーが投稿した公式店舗のIDリストを取得
+      // 2. タイムライン（全ユーザーの投稿）取得
+      const { data: timeline } = await supabase
+        .from("diaries")
+        .select(`*, profiles(nickname, avatar_url)`)
+        .order("created_at", { ascending: false })
+        .limit(10);
+      if (timeline) setDiaries(timeline);
+
+      // 3. 自分の進捗取得
       if (user) {
-        const { data: diaries } = await supabase
+        const { data: myVisits } = await supabase
           .from("diaries")
           .select("master_shop_id")
           .eq("user_id", user.id)
           .not("master_shop_id", "is", null);
 
-        if (diaries) {
-          const ids = diaries.map(d => d.master_shop_id);
-          setVisitedShopIds(Array.from(new Set(ids))); // 重複を排除
+        if (myVisits) {
+          const ids = myVisits.map(d => d.master_shop_id);
+          setVisitedShopIds(Array.from(new Set(ids)));
         }
       }
-
-      if (shops) setMasterShops(shops);
     } catch (error) {
-      console.error("データ取得エラー:", error);
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 進捗率の計算
-  const progress = masterShops.length > 0 
-    ? Math.round((visitedShopIds.length / masterShops.length) * 100) 
-    : 0;
-
-  if (loading) return <div className="flex h-screen items-center justify-center font-black text-orange-500 italic">LOADING RALLY...</div>;
+  const progress = masterShops.length > 0 ? Math.round((visitedShopIds.length / masterShops.length) * 100) : 0;
 
   return (
     <main className="p-4 bg-[#FFF9F5] min-h-screen pb-24 text-slate-900">
       <div className="max-w-md mx-auto">
-        {/* ヘッダーセクション */}
-        <header className="py-6 flex justify-between items-end">
-          <div>
-            <p className="text-[10px] font-black text-orange-500 tracking-[0.2em] uppercase">Season 2026</p>
-            <h1 className="text-4xl font-black italic tracking-tighter leading-none">RAMEN<br/>RALLY 50</h1>
-          </div>
-          <Link href="/post" className="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-sm shadow-xl active:scale-95 transition">
+        {/* ヘッダー */}
+        <header className="py-4 flex justify-between items-center">
+          <h1 className="text-2xl font-black italic tracking-tighter text-slate-900">RAMEN LOG</h1>
+          <Link href="/post" className="bg-orange-500 text-white px-5 py-2 rounded-full font-black text-sm shadow-lg shadow-orange-200">
             POST +
           </Link>
         </header>
 
-        {/* 進捗カード：ここが動くと感動します */}
-        <div className="bg-slate-900 rounded-[32px] p-6 text-white shadow-2xl mb-8 relative overflow-hidden">
-          <div className="relative z-10">
-            <h2 className="text-xs font-bold opacity-60 mb-2 uppercase tracking-widest">Master Progress</h2>
-            <div className="flex items-baseline gap-1 mb-4">
-              <span className="text-6xl font-black italic leading-none">{progress}</span>
-              <span className="text-xl font-black italic opacity-40">%</span>
+        {/* --- セクション1：スタンプラリー進捗 (新機能) --- */}
+        <div className="bg-slate-900 rounded-[24px] p-5 text-white shadow-xl mb-8 relative overflow-hidden">
+          <div className="flex justify-between items-start mb-2">
+            <div>
+              <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">Rally Progress</p>
+              <div className="flex items-baseline gap-1">
+                <span className="text-4xl font-black italic">{progress}</span>
+                <span className="text-sm font-black italic opacity-40">%</span>
+              </div>
             </div>
-            
-            <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden mb-2">
-              <div 
-                className="bg-gradient-to-r from-yellow-400 via-orange-500 to-red-500 h-full transition-all duration-1000 ease-out"
-                style={{ width: `${progress}%` }}
-              />
+            <div className="text-right">
+              <p className="text-[10px] font-bold opacity-60 uppercase">Cleared</p>
+              <p className="text-lg font-black italic">{visitedShopIds.length}/50</p>
             </div>
-            <p className="text-[10px] font-bold opacity-50 text-right uppercase tracking-wider">
-              {visitedShopIds.length} / {masterShops.length} SHOPS CLEARED
-            </p>
           </div>
-          <div className="absolute -right-6 -bottom-6 text-9xl opacity-10 grayscale rotate-12">🍜</div>
+          <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+            <div className="bg-orange-500 h-full transition-all duration-1000" style={{ width: `${progress}%` }} />
+          </div>
         </div>
 
-        {/* エリア別スタンプリスト */}
-        {["東京", "神奈川"].map(area => (
-          <section key={area} className="mb-8">
-            <div className="flex items-center justify-between mb-4 px-2">
-              <h3 className="text-lg font-black italic uppercase tracking-tight flex items-center gap-2">
-                <span className="w-1 h-5 bg-orange-500 rounded-full" />
-                {area} LEGENDS
-              </h3>
-            </div>
-            
-            <div className="space-y-2">
-              {masterShops.filter(s => s.area === area).map(shop => {
-                const isVisited = visitedShopIds.includes(shop.id);
-                return (
-                  <div 
-                    key={shop.id}
-                    className={`p-4 rounded-2xl flex items-center justify-between border-2 transition-all duration-500 ${
-                      isVisited 
-                      ? "bg-white border-orange-200 shadow-sm" 
-                      : "bg-slate-100/50 border-transparent opacity-40 grayscale"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl ${isVisited ? 'bg-orange-100' : 'bg-slate-200'}`}>
-                        {isVisited ? '⭐' : '🍲'}
-                      </div>
-                      <div>
-                        <p className="text-sm font-black text-slate-800 leading-tight">{shop.name}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">100 Meiten Regular</p>
-                      </div>
+        {/* --- セクション2：タイムライン (以前の機能) --- */}
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-black italic uppercase">Latest Feed</h2>
+            <Link href="/rally" className="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-full">
+              全50店舗リストを見る →
+            </Link>
+          </div>
+
+          <div className="space-y-6">
+            {diaries.map((diary) => (
+              <div key={diary.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-slate-100">
+                {diary.image_url && (
+                  <img src={diary.image_url} alt="ramen" className="w-full h-64 object-cover" />
+                )}
+                <div className="p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <h3 className="font-black text-slate-800">{diary.shop_name}</h3>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(diary.created_at).toLocaleDateString()}</p>
                     </div>
-                    {isVisited && (
-                      <div className="bg-orange-500 text-white text-[8px] font-black px-2 py-1 rounded-lg shadow-sm">
-                        DONE
-                      </div>
+                    {diary.is_gold_stamp && (
+                      <span className="bg-yellow-400 text-[8px] font-black px-2 py-1 rounded-full shadow-sm">GOLD STAMP</span>
                     )}
                   </div>
-                );
-              })}
-            </div>
-          </section>
-        ))}
+                  <p className="text-sm text-slate-600 font-medium leading-relaxed mb-3">{diary.comment}</p>
+                  <div className="flex items-center gap-2 border-t pt-3">
+                    <div className="w-6 h-6 bg-slate-200 rounded-full" />
+                    <span className="text-[10px] font-black text-slate-400">{diary.profiles?.nickname || "Guest"}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </main>
   );
