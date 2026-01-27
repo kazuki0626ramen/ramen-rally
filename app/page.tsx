@@ -34,7 +34,6 @@ export default function HomePage() {
     setTimeout(() => setPopup({ msg: "", show: false }), 3500);
   };
 
-  // 日付を「2024.05.20」形式に変換するヘルパー関数
   const formatDate = (dateString: string) => {
     if (!dateString) return "";
     const date = new Date(dateString);
@@ -117,7 +116,7 @@ export default function HomePage() {
         <button onClick={() => { supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Logout</button>
       </div>
 
-      <div className="bg-white p-6 rounded-[28px] shadow-lg shadow-orange-100/30 w-full max-w-md border border-white flex flex-col mb-8">
+      <div className="bg-white p-6 rounded-[28px] shadow-lg shadow-orange-100/30 w-full max-w-md border border-white flex flex-col mb-6">
         <div className="flex items-center w-full">
           <div className="text-4xl mr-4 drop-shadow-sm">🍜</div>
           <div className="text-left flex-1">
@@ -133,6 +132,15 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* --- 追加：ランキングページへのボタン --- */}
+      <button 
+        onClick={() => router.push("/ranking")}
+        className="w-full max-w-md mb-8 bg-gradient-to-r from-orange-600 to-orange-400 text-white py-4 rounded-[24px] font-black italic shadow-lg shadow-orange-200 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+      >
+        <span className="text-xl">🏆</span>
+        <span className="tracking-widest uppercase">View World Ranking</span>
+      </button>
+
       <div className="w-full max-w-md space-y-4 mb-10">
         <div className="flex items-center justify-between ml-2 mb-2">
           <h3 className="font-black text-slate-700 italic uppercase text-sm tracking-tighter">Shop List</h3>
@@ -142,7 +150,6 @@ export default function HomePage() {
         </div>
 
         {shops.map((shop) => {
-          // このお店のスタンプデータを取得
           const myStamp = stamps.find(s => String(s.shop_id) === String(shop.id));
           const isGot = !!myStamp;
           
@@ -157,7 +164,6 @@ export default function HomePage() {
                     <h4 className={`font-black tracking-tight leading-none mb-1 ${isGot ? "text-slate-800" : "text-slate-300"}`}>
                       {shop.name}
                     </h4>
-                    {/* ★日付表示の追加箇所 */}
                     {isGot ? (
                       <div className="flex items-center gap-2">
                         <p className="text-[10px] text-orange-500 font-bold uppercase tracking-widest">Visited</p>
