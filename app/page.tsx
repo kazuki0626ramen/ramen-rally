@@ -9,7 +9,6 @@ export default function HomePage() {
   const [shops, setShops] = useState<any[]>([]);
   const [stamps, setStamps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  // ポップアップ用の状態
   const [popup, setPopup] = useState<{ msg: string; show: boolean }>({ msg: "", show: false });
   const router = useRouter();
 
@@ -24,7 +23,6 @@ export default function HomePage() {
 
   const rank = getRank(stamps.length);
 
-  // ポップアップを表示する関数
   const triggerPopup = (count: number) => {
     let message = "スタンプをゲットしました！🍥";
     if (count === 1) message = "最初の一杯、ごちそうさま！麺活ロードの始まりです🍥";
@@ -33,8 +31,18 @@ export default function HomePage() {
     if (count > 0 && count === shops.length) message = "全店舗制覇！伝説のラーメン王の誕生です！👑";
 
     setPopup({ msg: message, show: true });
-    // 3.5秒後に自動で消す
     setTimeout(() => setPopup({ msg: "", show: false }), 3500);
+  };
+
+  // 日付を「2024.05.20」形式に変換するヘルパー関数
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("ja-JP", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).replace(/\//g, ".");
   };
 
   useEffect(() => {
@@ -71,7 +79,6 @@ export default function HomePage() {
       const { data: updatedStamps } = await supabase.from("stamps").select("*").eq("user_id", user.id);
       if (updatedStamps) {
         setStamps(updatedStamps);
-        // スタンプ追加成功時にポップアップを起動
         triggerPopup(updatedStamps.length);
       }
     }
@@ -82,11 +89,7 @@ export default function HomePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase
-      .from("stamps")
-      .delete()
-      .eq("user_id", user.id)
-      .eq("shop_id", shopId);
+    const { error } = await supabase.from("stamps").delete().eq("user_id", user.id).eq("shop_id", shopId);
 
     if (error) {
       alert("Error: " + error.message);
@@ -99,8 +102,7 @@ export default function HomePage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING...</div>;
 
   return (
-    <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans">
-      {/* ポップアップ表示用タグ (最前面に表示) */}
+    <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans relative">
       {popup.show && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-xs animate-bounce">
           <div className="bg-slate-800 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-600">
@@ -140,7 +142,10 @@ export default function HomePage() {
         </div>
 
         {shops.map((shop) => {
-          const isGot = stamps.some(s => String(s.shop_id) === String(shop.id));
+          // このお店のスタンプデータを取得
+          const myStamp = stamps.find(s => String(s.shop_id) === String(shop.id));
+          const isGot = !!myStamp;
+          
           return (
             <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex items-center justify-between transition-all">
               <div className="flex items-center gap-4">
@@ -148,8 +153,22 @@ export default function HomePage() {
                   {shop.icon || '🍜'}
                 </div>
                 <div>
-                  <h4 className={`font-black tracking-tight ${isGot ? "text-slate-800" : "text-slate-300"}`}>{shop.name}</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{isGot ? "Visit Completed" : "Not Visited"}</p>
+                  <div className="flex flex-col">
+                    <h4 className={`font-black tracking-tight leading-none mb-1 ${isGot ? "text-slate-800" : "text-slate-300"}`}>
+                      {shop.name}
+                    </h4>
+                    {/* ★日付表示の追加箇所 */}
+                    {isGot ? (
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] text-orange-500 font-bold uppercase tracking-widest">Visited</p>
+                        <p className="text-[9px] text-slate-400 font-medium tracking-tighter bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                          {formatDate(myStamp.created_at)}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Not Visited</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
