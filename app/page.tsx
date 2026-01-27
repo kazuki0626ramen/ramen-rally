@@ -8,6 +8,7 @@ export default function HomePage() {
   const [nickname, setNickname] = useState<string>("Guest User");
   const [shops, setShops] = useState<any[]>([]);
   const [stamps, setStamps] = useState<any[]>([]);
+  const [diaries, setDiaries] = useState<any[]>([]); // 日記データを格納
   const [loading, setLoading] = useState(true);
   const [popup, setPopup] = useState<{ msg: string; show: boolean }>({ msg: "", show: false });
   const router = useRouter();
@@ -51,12 +52,24 @@ export default function HomePage() {
         router.push("/login");
         return;
       }
+      
       const { data: profile } = await supabase.from("profiles").select("nickname").eq("id", user.id).single();
       if (profile?.nickname) setNickname(profile.nickname);
+      
       const { data: shopData } = await supabase.from("shops").select("*").order("created_at", { ascending: true });
       if (shopData) setShops(shopData);
+      
       const { data: stampData } = await supabase.from("stamps").select("*").eq("user_id", user.id);
       if (stampData) setStamps(stampData);
+
+      // ★日記データを取得（新しい順）
+      const { data: diaryData } = await supabase
+        .from("diaries")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (diaryData) setDiaries(diaryData);
+
       setLoading(false);
     };
     fetchData();
@@ -151,43 +164,64 @@ export default function HomePage() {
         {shops.map((shop) => {
           const myStamp = stamps.find(s => String(s.shop_id) === String(shop.id));
           const isGot = !!myStamp;
+          // このお店の最新の日記を取得
+          const myLatestDiary = diaries.find(d => String(d.shop_id) === String(shop.id));
           
           return (
-            <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex items-center justify-between transition-all">
-              <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-500 ${isGot ? "bg-orange-100 rotate-6" : "bg-slate-50 opacity-40 grayscale"}`}>
-                  {shop.icon || '🍜'}
-                </div>
-                <div>
-                  <div className="flex flex-col">
-                    <h4 className={`font-black tracking-tight leading-none mb-1 ${isGot ? "text-slate-800" : "text-slate-300"}`}>
-                      {shop.name}
-                    </h4>
-                    <div className="flex items-center gap-2">
-                      {isGot && (
-                        <p className="text-[9px] text-slate-400 font-medium tracking-tighter bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
-                          {formatDate(myStamp.created_at)}
-                        </p>
-                      )}
-                      {/* --- 追加：日記ページへのボタン --- */}
-                      <button 
-                        onClick={() => router.push(`/diary/${shop.id}`)}
-                        className="text-[9px] text-orange-600 font-black uppercase tracking-tighter bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 active:bg-orange-200 transition-colors"
-                      >
-                        📝 Log
-                      </button>
+            <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex flex-col gap-3 transition-all">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl transition-all duration-500 ${isGot ? "bg-orange-100 rotate-6" : "bg-slate-50 opacity-40 grayscale"}`}>
+                    {shop.icon || '🍜'}
+                  </div>
+                  <div>
+                    <div className="flex flex-col">
+                      <h4 className={`font-black tracking-tight leading-none mb-1 ${isGot ? "text-slate-800" : "text-slate-300"}`}>
+                        {shop.name}
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        {isGot && (
+                          <p className="text-[9px] text-slate-400 font-medium tracking-tighter bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                            {formatDate(myStamp.created_at)}
+                          </p>
+                        )}
+                        <button 
+                          onClick={() => router.push(`/diary/${shop.id}`)}
+                          className="text-[9px] text-orange-600 font-black uppercase tracking-tighter bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 active:bg-orange-200"
+                        >
+                          📝 Log
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => isGot ? handleRemoveStamp(shop.id) : handleAddStamp(shop.id, shop.name)}
+                  className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all shadow-md active:scale-90
+                    ${isGot ? "bg-orange-500 text-white shadow-orange-200" : "bg-white border-2 border-dashed border-slate-200 text-transparent"}`}
+                >
+                  {isGot ? "🍥" : ""}
+                </button>
               </div>
 
-              <button
-                onClick={() => isGot ? handleRemoveStamp(shop.id) : handleAddStamp(shop.id, shop.name)}
-                className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all shadow-md active:scale-90
-                  ${isGot ? "bg-orange-500 text-white shadow-orange-200" : "bg-white border-2 border-dashed border-slate-200 text-transparent"}`}
-              >
-                {isGot ? "🍥" : ""}
-              </button>
+              {/* --- 日記プレビューの表示 --- */}
+              {myLatestDiary && (
+                <div className="bg-slate-50/80 p-3 rounded-2xl border border-slate-100 ml-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs">{"⭐".repeat(myLatestDiary.rating)}</span>
+                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-widest">My Last Review</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2">
+                    {myLatestDiary.comment || "（メモなし）"}
+                  </p>
+                  {myLatestDiary.image_url && (
+                    <div className="mt-2 text-[8px] text-orange-500 font-bold flex items-center gap-1">
+                      📸 Photo Attached
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
