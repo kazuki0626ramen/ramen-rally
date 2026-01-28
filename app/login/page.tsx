@@ -1,40 +1,31 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "../../lib/supabase"; 
 import { useRouter } from "next/navigation";
+import { useAuth } from "../../hooks/useAuth";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
-
-  // ログイン処理
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    
-    if (error) {
-      alert("ログイン失敗: " + error.message);
-    } else {
-      router.push("/");
-      router.refresh(); // 状態を最新にする
-    }
-    setLoading(false);
-  };
+  
+  // ロジックをカスタムフックから呼び出し
+  const { 
+    email, 
+    setEmail, 
+    password, 
+    setPassword, 
+    loading, 
+    handleLogin 
+  } = useAuth();
 
   return (
     <main className="relative min-h-screen w-full flex flex-col items-center justify-center bg-[#8B0000] overflow-hidden">
       {/* 背景グラデーション */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#b22222] via-[#8B0000] to-[#4a0000]" />
       
-      {/* 雲のような装飾エフェクト */}
+      {/* 装飾エフェクト */}
       <div className="absolute top-10 -left-20 w-64 h-64 bg-yellow-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
       <div className="absolute bottom-10 -right-20 w-80 h-80 bg-red-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
 
-      {/* ラーメン画像（少し上に配置） */}
+      {/* ラーメン画像 */}
       <div className="relative z-10 mb-[-40px] transition-transform duration-700 hover:scale-110">
         <span className="text-[120px] drop-shadow-2xl inline-block transform -rotate-12">🍜</span>
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full flex justify-center">
