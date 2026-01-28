@@ -8,6 +8,8 @@ export default function TimelinePage() {
   const [diaries, setDiaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [replyTargetId, setReplyTargetId] = useState<string | null>(null); // 返信入力欄の表示制御
+  const [replyText, setReplyText] = useState(""); // 入力中の返信テキスト
   const router = useRouter();
 
   useEffect(() => {
@@ -31,7 +33,8 @@ export default function TimelinePage() {
         const formattedData = data?.map(d => ({
           ...d,
           like_count: d.like_count || 0,
-          is_liked: false
+          is_liked: false,
+          replies: [] // 本来は別テーブルから取得しますが、表示用に用意
         }));
         setDiaries(formattedData || []);
       }
@@ -40,13 +43,12 @@ export default function TimelinePage() {
     fetchTimeline();
   }, []);
 
-  // いいねの取り消し（トグル）機能
+  // いいねトグル
   const handleLike = (diaryId: string) => {
     if (!userId) {
       alert("いいねをするにはログインが必要です");
       return;
     }
-
     setDiaries(prev => prev.map(d => {
       if (d.id === diaryId) {
         const newIsLiked = !d.is_liked;
@@ -60,9 +62,28 @@ export default function TimelinePage() {
     }));
   };
 
-  // 返信機能（UIのみ。実際の投稿処理は別途追加可能）
-  const handleReply = (diaryId: string) => {
-    alert("返信機能：コメント入力欄を開きます（実装中）");
+  // 返信送信処理
+  const submitReply = async (diaryId: string) => {
+    if (!replyText.trim()) return;
+    if (!userId) {
+      alert("返信にはログインが必要です");
+      return;
+    }
+
+    // 画面上に即座に反映（モック）
+    setDiaries(prev => prev.map(d => {
+      if (d.id === diaryId) {
+        return {
+          ...d,
+          replies: [...(d.replies || []), { text: replyText, user: "You" }]
+        };
+      }
+      return d;
+    }));
+
+    setReplyText("");
+    setReplyTargetId(null);
+    alert("返信を送信しました！");
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING...</div>;
@@ -94,6 +115,7 @@ export default function TimelinePage() {
             )}
             
             <div className="p-6">
+              {/* 店舗・評価 */}
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-[9px] font-black text-orange-500 uppercase">{diary.master_shops?.area}</p>
@@ -106,18 +128,45 @@ export default function TimelinePage() {
                 </div>
               </div>
 
-              {/* コメント表示 */}
+              {/* コメント本体 */}
               <div className="flex gap-3 mb-6 bg-slate-50 p-4 rounded-2xl">
                 <span className="text-lg">💬</span>
-                <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                <p className="text-sm text-slate-600 leading-relaxed font-medium italic">
                   {diary.comment || "No comment."}
                 </p>
               </div>
 
-              {/* アクションバー（いいね取り消し & 返信） */}
+              {/* 返信一覧（復活） */}
+              {diary.replies && diary.replies.length > 0 && (
+                <div className="mb-6 ml-6 space-y-3 border-l-2 border-slate-100 pl-4">
+                  {diary.replies.map((reply: any, idx: number) => (
+                    <div key={idx} className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
+                      <span className="font-black text-orange-400 mr-2">{reply.user}:</span>
+                      {reply.text}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 返信入力欄（復活） */}
+              {replyTargetId === diary.id && (
+                <div className="mb-6 animate-in fade-in slide-in-from-top-2">
+                  <textarea
+                    className="w-full bg-slate-50 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-100 h-20"
+                    placeholder="返信を入力..."
+                    value={replyText}
+                    onChange={(e) => setReplyText(e.target.value)}
+                  />
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button onClick={() => setReplyTargetId(null)} className="text-[10px] font-black text-slate-400 uppercase">Cancel</button>
+                    <button onClick={() => submitReply(diary.id)} className="px-4 py-1 bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase">Send</button>
+                  </div>
+                </div>
+              )}
+
+              {/* アクションバー */}
               <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                 <div className="flex gap-6">
-                  {/* いいねボタン（トグル式） */}
                   <button onClick={() => handleLike(diary.id)} className="flex items-center gap-2 group">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${diary.is_liked ? "bg-pink-100 scale-110" : "bg-slate-50"}`}>
                       <span className="text-lg">{diary.is_liked ? "❤️" : "🤍"}</span>
@@ -128,9 +177,8 @@ export default function TimelinePage() {
                     </div>
                   </button>
 
-                  {/* 返信ボタン復活 */}
-                  <button onClick={() => handleReply(diary.id)} className="flex items-center gap-2 group">
-                    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-blue-50 transition-colors">
+                  <button onClick={() => setReplyTargetId(replyTargetId === diary.id ? null : diary.id)} className="flex items-center gap-2 group">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${replyTargetId === diary.id ? "bg-blue-100" : "bg-slate-50"}`}>
                       <span className="text-lg">🔁</span>
                     </div>
                     <div className="flex flex-col items-start">
