@@ -23,7 +23,8 @@ export default function HomePage() {
   const router = useRouter();
 
   const getRank = (count: number) => {
-    if (count >= 50) return { title: "真・ラーメン大帝 👑", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200" };
+    if (count >= 50) return { title: "真・ラーメン大帝 👑", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200 shadow-[0_0_10px_rgba(234,179,8,0.3)]" };
+    if (count >= 20) return { title: "百戦錬磨の麺客", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" };
     if (count >= 1) return { title: "駆け出し麺職人", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" };
     return { title: "一般市民", color: "text-slate-400", bg: "bg-slate-50", border: "border-slate-100" };
   };
@@ -50,7 +51,6 @@ export default function HomePage() {
 
   useEffect(() => { fetchData(); }, [router]);
 
-  // スタンプ追加（公式店のみ）
   const handleAddStamp = async (shop: any) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -70,7 +70,6 @@ export default function HomePage() {
     fetchData();
   };
 
-  // スタンプ取り消し機能（復活）
   const handleRemoveStamp = async (shopId: string) => {
     if (!confirm("スタンプを取り消しますか？")) return;
     const { data: { user } } = await supabase.auth.getUser();
@@ -80,7 +79,7 @@ export default function HomePage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING RALLY...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic uppercase">Loading Ramen World...</div>;
 
   const filteredShops = shops.filter(shop => {
     const matchesArea = activeTab === "すべて" ? true : shop.area === activeTab;
@@ -90,6 +89,11 @@ export default function HomePage() {
 
   return (
     <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans relative">
+      <div className="w-full max-w-md flex justify-between items-center mb-6">
+        <h1 className="text-xl font-black italic text-orange-600 tracking-tighter">RAMEN RALLY 50</h1>
+        <button onClick={() => { supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase">Logout</button>
+      </div>
+
       {/* ユーザーカード */}
       <div className="w-full max-w-md bg-white p-6 rounded-[28px] shadow-lg border border-white mb-6">
         <div className="flex items-center">
@@ -105,11 +109,29 @@ export default function HomePage() {
             <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Rally Member</p>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">{nickname}</h2>
           </div>
+          <button onClick={() => router.push("/profile")} className="bg-orange-50 p-2 rounded-full shadow-sm">⚙️</button>
         </div>
         <div className={`mt-4 px-4 py-2 rounded-xl border flex items-center justify-between ${rank.bg} ${rank.border}`}>
           <span className={`text-[10px] font-black uppercase tracking-widest ${rank.color}`}>RANK: {rank.title}</span>
           <span className="text-[10px] font-bold text-slate-400 italic">{stamps.length} / {shops.length} Stamps</span>
         </div>
+      </div>
+
+      {/* 復活させたナビゲーションボタン */}
+      <div className="w-full max-w-md space-y-3 mb-6">
+        <button 
+          onClick={() => router.push("/timeline")}
+          className="w-full bg-white text-orange-600 py-4 rounded-[24px] font-black italic shadow-sm border-2 border-orange-100 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+        >
+          <span className="text-xl">🌐</span><span className="tracking-widest uppercase text-sm">World Timeline</span>
+        </button>
+
+        <button 
+          onClick={() => router.push("/ranking")} 
+          className="w-full bg-gradient-to-r from-orange-600 to-orange-400 text-white py-4 rounded-[24px] font-black italic shadow-lg shadow-orange-200 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+        >
+          <span className="text-xl">🏆</span><span className="tracking-widest uppercase text-sm">View World Ranking</span>
+        </button>
       </div>
 
       {/* エリアタブ */}
@@ -121,7 +143,15 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* リスト */}
+      {/* リスト表示設定 */}
+      <div className="w-full max-w-md flex items-center justify-end gap-2 mb-4 px-2">
+        <span className="text-[10px] font-black text-slate-400 uppercase">未訪問のみ</span>
+        <button onClick={() => setShowUnvisitedOnly(!showUnvisitedOnly)} className={`w-8 h-4 rounded-full relative ${showUnvisitedOnly ? 'bg-orange-500' : 'bg-slate-200'}`}>
+          <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showUnvisitedOnly ? 'left-4.5' : 'left-0.5'}`} />
+        </button>
+      </div>
+
+      {/* ショップリスト */}
       <div className="w-full max-w-md space-y-4 mb-24">
         {filteredShops.map((shop) => {
           const myStamp = stamps.find(s => String(s.shop_id) === String(shop.id));
@@ -129,15 +159,14 @@ export default function HomePage() {
           return (
             <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${isGot ? "bg-orange-100" : "bg-slate-50 opacity-40"}`}>
-                  {myStamp?.type === 'checkin' ? '🏆' : '🍲'}
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${isGot ? (myStamp?.type === 'checkin' ? "bg-yellow-100 ring-2 ring-yellow-400" : "bg-orange-100") : "bg-slate-50 opacity-40 grayscale"}`}>
+                  {myStamp?.type === 'checkin' ? '🏆' : (isGot ? '⭐' : '🍲')}
                 </div>
                 <div>
-                  <h4 className="font-black tracking-tight text-xs text-slate-800">{shop.name}</h4>
-                  <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1 block">📝 Log</button>
+                  <h4 className={`font-black tracking-tight text-xs ${isGot ? "text-slate-800" : "text-slate-300"}`}>{shop.name}</h4>
+                  <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1 block">📝 Log Details</button>
                 </div>
               </div>
-              {/* スタンプボタン：ある場合は取り消し、ない場合は追加 */}
               <button 
                 onClick={() => isGot ? handleRemoveStamp(shop.id) : handleAddStamp(shop)} 
                 className={`w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-md active:scale-90 transition-all ${isGot ? "bg-orange-500 text-white" : "bg-white border-2 border-dashed border-slate-200"}`}
@@ -149,10 +178,11 @@ export default function HomePage() {
         })}
       </div>
 
-      {/* 自由投稿ボタン */}
+      {/* 自由投稿FAB */}
       <button 
         onClick={() => router.push("/diary/new")}
         className="fixed bottom-8 right-6 w-16 h-16 bg-orange-500 rounded-full shadow-2xl flex items-center justify-center text-white text-3xl z-50 border-4 border-white"
+        style={{ boxShadow: '0 10px 30px -5px rgba(249, 115, 22, 0.6)' }}
       >
         <span className="font-bold">+</span>
       </button>
