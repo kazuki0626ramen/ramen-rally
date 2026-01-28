@@ -12,11 +12,11 @@ export default function TimelinePage() {
 
   useEffect(() => {
     const fetchTimeline = async () => {
-      // ユーザー情報の取得
+      // 1. ログインユーザーの確認
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id || null);
 
-      // 修正ポイント：!内側に記述することで、プロフィールがなくても日記を表示させる
+      // 2. 日記・名前・店名の取得（プロフィールがなくても取得できるLeft Join形式）
       const { data, error } = await supabase
         .from("diaries")
         .select(`
@@ -37,14 +37,14 @@ export default function TimelinePage() {
     fetchTimeline();
   }, []);
 
-  // いいね機能（ロジックは維持）
+  // いいね機能
   const handleLike = async (diaryId: string) => {
     if (!userId) {
       alert("いいねをするにはログインが必要です");
       return;
     }
-    // ここにいいね保存処理があれば追加
-    alert("いいね！");
+    // ここにいいねのDB保存処理がある場合は追記
+    alert("いいね！しました❤️");
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING...</div>;
@@ -61,7 +61,7 @@ export default function TimelinePage() {
         {diaries && diaries.length > 0 ? (
           diaries.map((diary) => (
             <div key={diary.id} className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-white">
-              {/* ユーザー情報 */}
+              {/* 1. 投稿者ヘッダー */}
               <div className="px-6 py-3 bg-slate-50/50 flex items-center gap-2">
                 <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-[8px] font-black text-orange-500">
                   {diary.profiles?.nickname?.charAt(0) || "U"}
@@ -71,7 +71,7 @@ export default function TimelinePage() {
                 </span>
               </div>
 
-              {/* 写真 */}
+              {/* 2. ラーメン写真 */}
               {diary.image_url && (
                 <div className="w-full aspect-square overflow-hidden bg-slate-100">
                   <img src={diary.image_url} alt="Ramen" className="w-full h-full object-cover" />
@@ -79,6 +79,7 @@ export default function TimelinePage() {
               )}
               
               <div className="p-6">
+                {/* 3. 店舗情報と星評価 */}
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <p className="text-[9px] font-black text-orange-500 uppercase mb-1">{diary.master_shops?.area}</p>
@@ -86,17 +87,26 @@ export default function TimelinePage() {
                   </div>
                   <div className="flex text-xs">
                     {[...Array(5)].map((_, i) => (
-                      <span key={i} className={i < diary.rating ? "grayscale-0" : "grayscale opacity-20"}>⭐</span>
+                      <span key={i} className={i < (diary.rating || 0) ? "grayscale-0" : "grayscale opacity-20"}>⭐</span>
                     ))}
                   </div>
                 </div>
 
-                <p className="text-sm text-slate-600 mb-6">{diary.comment}</p>
+                {/* 4. コメント部分 (ここに感想が表示されます) */}
+                <div className="mb-6">
+                  <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                    {diary.comment || "コメントはありません"}
+                  </p>
+                </div>
 
+                {/* 5. いいねボタンと日付 */}
                 <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                  <button onClick={() => handleLike(diary.id)} className="flex items-center gap-2">
+                  <button 
+                    onClick={() => handleLike(diary.id)} 
+                    className="flex items-center gap-2 group active:scale-90 transition-transform"
+                  >
                     <span className="text-lg">❤️</span>
-                    <span className="text-xs font-bold text-slate-400">Like</span>
+                    <span className="text-xs font-bold text-slate-400 group-hover:text-pink-500">Like</span>
                   </button>
                   <span className="text-[9px] font-bold text-slate-300 uppercase">
                     {new Date(diary.created_at).toLocaleDateString()}
