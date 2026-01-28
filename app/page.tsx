@@ -98,12 +98,13 @@ export default function HomePage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING RALLY...</div>;
 
   return (
-    <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans">
+    <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans relative">
       <div className="w-full max-w-md flex justify-between items-center mb-6">
         <h1 className="text-xl font-black italic text-orange-600 tracking-tighter">RAMEN RALLY 50</h1>
         <button onClick={() => { supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase">Logout</button>
       </div>
 
+      {/* ユーザーカード */}
       <div className="w-full max-w-md bg-white p-6 rounded-[28px] shadow-lg border border-white mb-6">
         <div className="flex items-center">
           <div className="text-4xl mr-4">🍜</div>
@@ -157,7 +158,7 @@ export default function HomePage() {
       </div>
 
       {/* ショップリスト */}
-      <div className="w-full max-w-md space-y-4 mb-10">
+      <div className="w-full max-w-md space-y-4 mb-24">
         <div className="flex items-center justify-between ml-2">
           <h3 className="font-black text-slate-700 italic text-sm tracking-tighter uppercase">{activeTab} のリスト</h3>
           <span className="text-[9px] font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-md">{filteredShops.length} 件</span>
@@ -177,10 +178,11 @@ export default function HomePage() {
                   <div>
                     <div className="flex items-center gap-1">
                       <span className="text-[7px] font-black px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded-sm">{shop.area}</span>
+                      {isGot && <span className="text-[7px] font-black px-1.5 py-0.5 bg-green-100 text-green-600 rounded-sm">CHECKED</span>}
                       {isGold && <span className="text-[7px] font-black px-1.5 py-0.5 bg-yellow-100 text-yellow-600 rounded-sm">GOLD</span>}
                     </div>
                     <h4 className={`font-black tracking-tight leading-none mt-1 text-xs ${isGot ? "text-slate-800" : "text-slate-300"}`}>{shop.name}</h4>
-                    <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1 block">📝 Log</button>
+                    <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1 block">📝 Log Details</button>
                   </div>
                 </div>
                 <button 
@@ -196,6 +198,15 @@ export default function HomePage() {
           <div className="text-center py-10 text-slate-300 font-black italic text-xs uppercase tracking-widest">No Shops Found</div>
         )}
       </div>
+
+      {/* Floating Action Button (ステップ2のメイン追加) */}
+      <button 
+        onClick={() => router.push("/diary/new")}
+        className="fixed bottom-8 right-6 w-16 h-16 bg-orange-500 rounded-full shadow-2xl flex items-center justify-center text-white text-3xl hover:scale-110 active:scale-95 transition-all z-50 border-4 border-white"
+        style={{ boxShadow: '0 10px 30px -5px rgba(249, 115, 22, 0.6)' }}
+      >
+        <span className="font-bold">+</span>
+      </button>
     </main>
   );
 }
