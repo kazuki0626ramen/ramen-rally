@@ -12,34 +12,36 @@ export default function TimelinePage() {
   const [replyText, setReplyText] = useState("");
   const router = useRouter();
 
+  const fetchTimeline = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setUserId(user?.id || null);
+
+    // 日記、プロフィール、店名、そして「返信(diary_replies)」も一緒に取得
+    const { data, error } = await supabase
+      .from("diaries")
+      .select(`
+        *,
+        profiles (nickname),
+        master_shops (name, area),
+        diary_replies (
+          id,
+          content,
+          created_at,
+          profiles:user_id (nickname)
+        )
+      `)
+      .eq("status", "public")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Timeline Error:", error);
+    } else {
+      setDiaries(data || []);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchTimeline = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
-
-      const { data, error } = await supabase
-        .from("diaries")
-        .select(`
-          *,
-          profiles (nickname),
-          master_shops (name, area)
-        `)
-        .eq("status", "public")
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Timeline Error:", error);
-      } else {
-        const formattedData = data?.map(d => ({
-          ...d,
-          like_count: d.like_count || 0,
-          is_liked: false,
-          replies: []
-        }));
-        setDiaries(formattedData || []);
-      }
-      setLoading(false);
-    };
     fetchTimeline();
   }, []);
 
@@ -54,32 +56,33 @@ export default function TimelinePage() {
         return { 
           ...d, 
           is_liked: newIsLiked, 
-          like_count: newIsLiked ? d.like_count + 1 : Math.max(0, d.like_count - 1) 
+          like_count: newIsLiked ? (d.like_count || 0) + 1 : Math.max(0, (d.like_count || 0) - 1) 
         };
       }
       return d;
     }));
   };
 
+  // 永続保存する返信送信処理
   const submitReply = async (diaryId: string) => {
-    if (!replyText.trim()) return;
-    if (!userId) {
-      alert("返信にはログインが必要です");
-      return;
+    if (!replyText.trim() || !userId) return;
+
+    const { error } = await supabase
+      .from("diary_replies")
+      .insert({
+        diary_id: diaryId,
+        user_id: userId,
+        content: replyText
+      });
+
+    if (error) {
+      alert("返信の保存に失敗しました");
+      console.error(error);
+    } else {
+      setReplyText("");
+      setReplyTargetId(null);
+      fetchTimeline(); // データを再取得して画面を更新
     }
-
-    setDiaries(prev => prev.map(d => {
-      if (d.id === diaryId) {
-        return {
-          ...d,
-          replies: [...(d.replies || []), { text: replyText, user: "You" }]
-        };
-      }
-      return d;
-    }));
-
-    setReplyText("");
-    setReplyTargetId(null);
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING...</div>;
@@ -112,7 +115,7 @@ export default function TimelinePage() {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-[9px] font-black text-orange-500 uppercase">{diary.master_shops?.area}</p>
-                  <h3 className="text-lg font-black text-slate-800">{diary.master_shops?.name}</h3>
+                  <h3 className="text-lg font-black text-slate-800 leading-tight">{diary.master_shops?.name}</h3>
                 </div>
                 <div className="flex text-xs bg-slate-50 px-2 py-1 rounded-lg">
                   {[...Array(5)].map((_, i) => (
@@ -123,35 +126,37 @@ export default function TimelinePage() {
 
               <div className="flex gap-3 mb-6 bg-slate-50 p-4 rounded-2xl">
                 <span className="text-lg">💬</span>
-                <p className="text-sm text-slate-600 leading-relaxed font-medium italic">
+                <p className="text-sm text-slate-900 leading-relaxed font-medium italic">
                   {diary.comment || "No comment."}
                 </p>
               </div>
 
-              {/* 返信一覧 */}
-              {diary.replies && diary.replies.length > 0 && (
-                <div className="mb-6 ml-6 space-y-3 border-l-2 border-slate-100 pl-4">
-                  {diary.replies.map((reply: any, idx: number) => (
-                    <div key={idx} className="text-xs text-slate-900 bg-slate-50 p-2 rounded-lg font-medium">
-                      <span className="font-black text-orange-500 mr-2">{reply.user}:</span>
-                      {reply.text}
+              {/* DBから取得した本物の返信一覧 */}
+              {diary.diary_replies && diary.diary_replies.length > 0 && (
+                <div className="mb-6 ml-6 space-y-3 border-l-2 border-orange-100 pl-4">
+                  {diary.diary_replies.map((reply: any) => (
+                    <div key={reply.id} className="text-xs text-slate-900 bg-orange-50/50 p-2 rounded-lg">
+                      <span className="font-black text-orange-500 mr-2">
+                        {reply.profiles?.nickname || "Guest"}:
+                      </span>
+                      {reply.content}
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* 返信入力欄 - 文字色を slate-900 (黒) に変更 */}
+              {/* 返信入力欄 */}
               {replyTargetId === diary.id && (
                 <div className="mb-6 animate-in fade-in slide-in-from-top-2">
                   <textarea
-                    className="w-full bg-slate-100 rounded-xl p-3 text-xs text-slate-900 font-bold outline-none focus:ring-2 focus:ring-blue-200 h-20 placeholder:text-slate-400"
+                    className="w-full bg-slate-100 rounded-xl p-3 text-xs text-slate-900 font-bold outline-none h-20"
                     placeholder="返信を入力..."
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
                   />
                   <div className="flex justify-end gap-2 mt-2">
-                    <button onClick={() => setReplyTargetId(null)} className="text-[10px] font-black text-slate-400 uppercase px-2 py-1">Cancel</button>
-                    <button onClick={() => submitReply(diary.id)} className="px-4 py-1 bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase shadow-sm shadow-blue-100">Send</button>
+                    <button onClick={() => setReplyTargetId(null)} className="text-[10px] font-black text-slate-400 uppercase">Cancel</button>
+                    <button onClick={() => submitReply(diary.id)} className="px-4 py-1 bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase shadow-lg shadow-blue-100">Send</button>
                   </div>
                 </div>
               )}
@@ -164,7 +169,7 @@ export default function TimelinePage() {
                     </div>
                     <div className="flex flex-col items-start">
                       <span className="text-[8px] font-black text-slate-400 uppercase">Like</span>
-                      <span className="text-xs font-black text-slate-800">{diary.like_count}</span>
+                      <span className="text-xs font-black text-slate-800">{diary.like_count || 0}</span>
                     </div>
                   </button>
 
