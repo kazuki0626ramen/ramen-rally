@@ -4,6 +4,18 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
 
+// 2地点の緯度経度から距離(m)を計算する関数
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 export default function HomePage() {
   const [nickname, setNickname] = useState<string>("Guest User");
   const [shops, setShops] = useState<any[]>([]);
@@ -24,8 +36,8 @@ export default function HomePage() {
 
   const rank = getRank(stamps.length);
 
-  const triggerPopup = (count: number) => {
-    let message = "スタンプをゲットしました！🍥";
+  const triggerPopup = (count: number, isGold: boolean) => {
+    let message = isGold ? "現地チェックイン！金のスタンプ獲得！🏆" : "スタンプをゲットしました！🍥";
     if (count === 1) message = "最初の一杯、ごちそうさま！麺活ロードの始まりです🍥";
     if (count === 10) message = "10店舗制覇！ラーメン愛が伝わります🍜";
     if (count === 25) message = "半分達成！あなたはもう立派なラーメン通です✨";
@@ -39,59 +51,73 @@ export default function HomePage() {
     if (!dateString) return "";
     const date = new Date(dateString);
     return date.toLocaleDateString("ja-JP", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
+      year: "numeric", month: "2-digit", day: "2-digit",
     }).replace(/\//g, ".");
   };
 
+  const fetchData = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { router.push("/login"); return; }
+    const { data: profile } = await supabase.from("profiles").select("nickname").eq("id", user.id).single();
+    if (profile?.nickname) setNickname(profile.nickname);
+    const { data: shopData } = await supabase.from("master_shops").select("*").order("area", { ascending: false });
+    if (shopData) setShops(shopData);
+    const { data: stampData } = await supabase.from("stamps").select("*").eq("user_id", user.id);
+    if (stampData) setStamps(stampData || []);
+    const { data: diaryData } = await supabase.from("diaries").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    if (diaryData) setDiaries(diaryData || []);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/login");
-        return;
-      }
-
-      // 1. プロフィール取得
-      const { data: profile } = await supabase.from("profiles").select("nickname").eq("id", user.id).single();
-      if (profile?.nickname) setNickname(profile.nickname);
-
-      // 2. 公式50店舗（master_shops）を取得
-      const { data: shopData } = await supabase.from("master_shops").select("*").order("area", { ascending: false });
-      if (shopData) setShops(shopData);
-
-      // 3. スタンプ取得（master_shop_idで紐付け）
-      const { data: stampData } = await supabase.from("stamps").select("*").eq("user_id", user.id);
-      if (stampData) setStamps(stampData);
-
-      // 4. 日記取得
-      const { data: diaryData } = await supabase.from("diaries").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-      if (diaryData) setDiaries(diaryData);
-
-      setLoading(false);
-    };
     fetchData();
   }, [router]);
 
-  const handleAddStamp = async (shopId: string, shopName: string) => {
+  // スタンプ追加メイン処理
+  const handleAddStamp = async (shop: any) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    
-    // shop_id として master_shops の ID を保存
+
+    const isNow = confirm(`今「${shop.name}」にいますか？\n【OK】位置を確認して金のスタンプを狙う\n【キャンセル】過去の記録として通常スタンプ`);
+
+    let finalType = 'memory';
+
+    if (isNow) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        const dist = getDistance(latitude, longitude, shop.latitude, shop.longitude);
+
+        if (dist <= 200) {
+          finalType = 'checkin';
+        } else {
+          alert(`お店から約${Math.round(dist)}m離れています。200m以内でないと金になりません。通常スタンプを付与します。`);
+          finalType = 'memory';
+        }
+        await executeInsert(user.id, shop, finalType);
+      }, () => {
+        alert("位置情報が取得できませんでした。通常スタンプを付与します。");
+        executeInsert(user.id, shop, 'memory');
+      });
+    } else {
+      await executeInsert(user.id, shop, 'memory');
+    }
+  };
+
+  const executeInsert = async (userId: string, shop: any, type: string) => {
     const { error } = await supabase.from("stamps").insert({ 
-      user_id: user.id, 
-      shop_id: shopId, 
-      shop_name: shopName 
+      user_id: userId, 
+      shop_id: shop.id, 
+      shop_name: shop.name,
+      type: type 
     });
 
     if (error) {
       alert("Error: " + error.message);
     } else {
-      const { data: updatedStamps } = await supabase.from("stamps").select("*").eq("user_id", user.id);
+      const { data: updatedStamps } = await supabase.from("stamps").select("*").eq("user_id", userId);
       if (updatedStamps) { 
         setStamps(updatedStamps); 
-        triggerPopup(updatedStamps.length); 
+        triggerPopup(updatedStamps.length, type === 'checkin'); 
       }
     }
   };
@@ -127,7 +153,6 @@ export default function HomePage() {
         <button onClick={() => { supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Logout</button>
       </div>
 
-      {/* ユーザーカード */}
       <div className="bg-white p-6 rounded-[28px] shadow-lg shadow-orange-100/30 w-full max-w-md border border-white flex flex-col mb-6">
         <div className="flex items-center w-full">
           <div className="text-4xl mr-4 drop-shadow-sm">🍜</div>
@@ -143,50 +168,30 @@ export default function HomePage() {
         </div>
       </div>
 
-      <button 
-        onClick={() => router.push("/timeline")}
-        className="w-full max-w-md mb-3 bg-white text-orange-600 py-4 rounded-[24px] font-black italic shadow-sm border-2 border-orange-100 flex items-center justify-center gap-3 active:scale-95 transition-transform"
-      >
-        <span className="text-xl">🌐</span>
-        <span className="tracking-widest uppercase">World Timeline</span>
-      </button>
-
-      <button onClick={() => router.push("/ranking")} className="w-full max-w-md mb-8 bg-gradient-to-r from-orange-600 to-orange-400 text-white py-4 rounded-[24px] font-black italic shadow-lg shadow-orange-200 flex items-center justify-center gap-3 active:scale-95 transition-transform">
-        <span className="text-xl">🏆</span><span className="tracking-widest uppercase">View World Ranking</span>
-      </button>
-
-      {/* ショップリスト */}
       <div className="w-full max-w-md space-y-4 mb-10">
-        <div className="flex items-center justify-between ml-2 mb-2">
-          <h3 className="font-black text-slate-700 italic uppercase text-sm tracking-tighter">Shop List (Legend 50)</h3>
-          <span className="text-[10px] font-bold text-orange-500 bg-orange-50 px-2 py-1 rounded-lg border border-orange-100">
-            PROGRESS: {Math.round((stamps.length / shops.length) * 100)}%
-          </span>
-        </div>
-
         {shops.map((shop) => {
-          // master_shop_id または shop_id で照合
           const myStamp = stamps.find(s => String(s.shop_id) === String(shop.id));
           const isGot = !!myStamp;
-          // 日記も同様に照合（もしdiaryにmaster_shop_idを入れる構成なら適宜修正）
+          const isGold = myStamp?.type === 'checkin';
           const myLatestDiary = diaries.find(d => String(d.master_shop_id) === String(shop.id) || String(d.shop_id) === String(shop.id));
           
           return (
             <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex flex-col gap-3 transition-all">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center text-2xl transition-all duration-500 shadow-inner ${isGot ? "bg-orange-100" : "bg-slate-50 opacity-40 grayscale"}`}>
+                  <div className={`w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center text-2xl transition-all duration-500 shadow-inner 
+                    ${isGot ? (isGold ? "bg-yellow-100 ring-2 ring-yellow-400" : "bg-orange-100") : "bg-slate-50 opacity-40 grayscale"}`}>
                     {myLatestDiary?.image_url ? (
                       <img src={myLatestDiary.image_url} alt="ramen" className="w-full h-full object-cover" />
                     ) : (
-                      <span className={isGot ? "rotate-6" : ""}>{isGot ? '⭐' : '🍲'}</span>
+                      <span className={isGot ? "rotate-6" : ""}>{isGold ? '🏆' : (isGot ? '⭐' : '🍲')}</span>
                     )}
                   </div>
-
                   <div>
                     <div className="flex flex-col">
                       <div className="flex items-center gap-1">
                         <span className="text-[8px] font-black px-1 bg-slate-100 text-slate-400 rounded-sm mb-1">{shop.area}</span>
+                        {isGold && <span className="text-[8px] font-black px-1 bg-yellow-100 text-yellow-600 rounded-sm mb-1">GOLD CHECK-IN</span>}
                       </div>
                       <h4 className={`font-black tracking-tight leading-none mb-1 ${isGot ? "text-slate-800" : "text-slate-300"}`}>{shop.name}</h4>
                       <div className="flex items-center gap-2">
@@ -196,18 +201,15 @@ export default function HomePage() {
                     </div>
                   </div>
                 </div>
-                <button onClick={() => isGot ? handleRemoveStamp(shop.id) : handleAddStamp(shop.id, shop.name)} className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all shadow-md active:scale-90 ${isGot ? "bg-orange-500 text-white shadow-orange-200" : "bg-white border-2 border-dashed border-slate-200 text-transparent"}`}>{isGot ? "🍥" : ""}</button>
+                <button 
+                  onClick={() => isGot ? handleRemoveStamp(shop.id) : handleAddStamp(shop)} 
+                  className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all shadow-md active:scale-90 
+                    ${isGot 
+                      ? (isGold ? "bg-yellow-400 text-white shadow-yellow-200" : "bg-orange-500 text-white shadow-orange-200") 
+                      : "bg-white border-2 border-dashed border-slate-200 text-transparent"}`}>
+                  {isGot ? "🍥" : ""}
+                </button>
               </div>
-
-              {myLatestDiary && (
-                <div className="bg-slate-50/80 p-3 rounded-2xl border border-slate-100 ml-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs">{"⭐".repeat(myLatestDiary.rating)}</span>
-                    <span className="text-[8px] text-slate-400 font-black uppercase tracking-widest">My Review</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed line-clamp-2">{myLatestDiary.comment || "（メモなし）"}</p>
-                </div>
-              )}
             </div>
           );
         })}
