@@ -5,87 +5,98 @@ import { useAuth } from "../../hooks/useAuth";
 
 export default function LoginPage() {
   const router = useRouter();
-  
-  // ロジックをカスタムフックから呼び出し
-  const { 
-    email, 
-    setEmail, 
-    password, 
-    setPassword, 
-    loading, 
-    handleLogin 
+
+  const {
+    email,
+    setEmail,
+    password,
+    setPassword,
+    loading,
+    handleLogin,
   } = useAuth();
 
   return (
-    <main className="relative min-h-screen w-full flex flex-col items-center justify-center bg-[#8B0000] overflow-hidden">
-      {/* 背景グラデーション */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#b22222] via-[#8B0000] to-[#4a0000]" />
+    <main className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-[#b94a3a] via-[#8b2f23] to-[#5a1a14]">
       
-      {/* 装飾エフェクト */}
-      <div className="absolute top-10 -left-20 w-64 h-64 bg-yellow-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" />
-      <div className="absolute bottom-10 -right-20 w-80 h-80 bg-red-400 rounded-full mix-blend-multiply filter blur-3xl opacity-20" />
+      {/* やわらか装飾 */}
+      <div className="absolute top-16 -left-24 w-72 h-72 bg-orange-300 rounded-full blur-3xl opacity-20" />
+      <div className="absolute bottom-16 -right-24 w-80 h-80 bg-yellow-200 rounded-full blur-3xl opacity-20" />
 
-      {/* ラーメン画像 */}
-      <div className="relative z-10 mb-[-40px] transition-transform duration-700 hover:scale-110">
-        <span className="text-[120px] drop-shadow-2xl inline-block transform -rotate-12">🍜</span>
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full flex justify-center">
-            <div className="w-1 h-12 bg-white/20 blur-md rounded-full animate-bounce delay-75" />
-            <div className="w-1 h-16 bg-white/10 blur-md rounded-full animate-bounce mx-2" />
-            <div className="w-1 h-10 bg-white/20 blur-md rounded-full animate-bounce delay-150" />
-        </div>
+      {/* 🍜 */}
+      <div className="relative z-10 mb-[-32px]">
+        <span className="text-[96px] drop-shadow-xl">🍜</span>
       </div>
 
       {/* ログインカード */}
       <div className="relative z-20 w-full max-w-sm px-4">
-        <div className="bg-white/10 backdrop-blur-md p-8 rounded-[24px] shadow-2xl border border-white/20">
-          <h1 className="text-3xl font-black text-center text-white mb-8 tracking-[0.2em] italic">LOGIN</h1>
-          
-          <form onSubmit={handleLogin} className="flex flex-col gap-6">
+        <div className="bg-white/15 backdrop-blur-lg p-8 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.25)] border border-white/20">
+
+          {/* タイトル */}
+          <h1 className="text-2xl font-bold text-center text-white mb-1">
+            おかえりなさい
+          </h1>
+          <p className="text-center text-white/70 text-sm mb-8">
+            ログインして続けましょう 🍥
+          </p>
+
+          <form onSubmit={handleLogin} className="flex flex-col gap-5">
+            
+            {/* Email */}
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50">👤</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60">
+                ✉️
+              </span>
               <input
                 type="email"
-                placeholder="Email Address"
-                className="w-full bg-white/10 border border-white/20 p-4 pl-12 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                placeholder="メールアドレス"
+                className="w-full bg-white/20 border border-white/30 p-4 pl-12 rounded-xl text-white placeholder-white/60 outline-none focus:ring-2 focus:ring-orange-400 transition-all"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
 
+            {/* Password */}
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50">🔒</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60">
+                🔑
+              </span>
               <input
                 type="password"
-                placeholder="Password"
-                className="w-full bg-white/10 border border-white/20 p-4 pl-12 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                placeholder="パスワード"
+                className="w-full bg-white/20 border border-white/30 p-4 pl-12 rounded-xl text-white placeholder-white/60 outline-none focus:ring-2 focus:ring-orange-400 transition-all"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
-            
-            <button 
-              type="submit" 
+
+            {/* Button */}
+            <button
+              type="submit"
               disabled={loading}
-              className="bg-gradient-to-r from-yellow-500 to-orange-600 text-white p-4 rounded-xl font-black shadow-xl hover:brightness-110 transition-all disabled:opacity-50"
+              className="mt-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white p-4 rounded-xl font-bold shadow-lg hover:from-orange-500 hover:to-orange-600 transition-all disabled:opacity-50"
             >
-              {loading ? "AUTHENTICATING..." : "SIGN IN"}
+              {loading ? "ログイン中…" : "ログインする"}
             </button>
 
-            <div className="flex flex-col items-center gap-3">
-              <button 
-                type="button" 
-                onClick={() => router.push("/signup")} 
-                className="text-white/70 text-xs font-bold hover:text-yellow-400 transition-colors tracking-widest border-b border-transparent hover:border-yellow-400"
+            {/* Signup */}
+            <div className="flex justify-center mt-2">
+              <button
+                type="button"
+                onClick={() => router.push("/signup")}
+                className="text-white/80 text-xs hover:text-yellow-200 transition-colors"
               >
-                初めての方はこちら（新規登録）
+                はじめての方はこちら 🍥
               </button>
             </div>
+
           </form>
         </div>
       </div>
-      <div className="absolute bottom-8 right-8 text-white/20 text-4xl transform rotate-45">✦</div>
+
+      {/* 小さな飾り */}
+      <div className="absolute bottom-6 right-6 text-white/20 text-3xl">✦</div>
     </main>
   );
 }
