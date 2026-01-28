@@ -26,7 +26,6 @@ export default function HomePage() {
   const [showUnvisitedOnly, setShowUnvisitedOnly] = useState(false);
   const router = useRouter();
 
-  // --- アップデート：全10段階の新ランク計算 ---
   const getRank = (count: number) => {
     if (count >= 50) return { title: "真・ラーメン大帝 👑", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200 shadow-[0_0_10px_rgba(234,179,8,0.3)]" };
     if (count >= 45) return { title: "麺の解脱者", color: "text-fuchsia-700", bg: "bg-fuchsia-50", border: "border-fuchsia-100" };
@@ -42,7 +41,6 @@ export default function HomePage() {
 
   const rank = getRank(stamps.length);
 
-  // フィルタリングロジック
   const filteredShops = shops.filter(shop => {
     const matchesArea = activeTab === "すべて" ? true : shop.area === activeTab;
     const isGot = stamps.some(s => String(s.shop_id) === String(shop.id));
@@ -101,29 +99,42 @@ export default function HomePage() {
 
   return (
     <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans">
-      {/* ユーザーカード */}
+      <div className="w-full max-w-md flex justify-between items-center mb-6">
+        <h1 className="text-xl font-black italic text-orange-600 tracking-tighter">RAMEN RALLY 50</h1>
+        <button onClick={() => { supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase">Logout</button>
+      </div>
+
       <div className="w-full max-w-md bg-white p-6 rounded-[28px] shadow-lg border border-white mb-6">
         <div className="flex items-center">
           <div className="text-4xl mr-4">🍜</div>
           <div className="flex-1 text-left">
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Rally Member</p>
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Rally Member</p>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">{nickname}</h2>
           </div>
           <button onClick={() => router.push("/profile")} className="bg-orange-50 p-2 rounded-full">⚙️</button>
         </div>
-        {/* アップデート：ランク表示のスタイリング */}
         <div className={`mt-4 px-4 py-2 rounded-xl border flex items-center justify-between transition-all duration-700 ${rank.bg} ${rank.border}`}>
           <span className={`text-[10px] font-black uppercase tracking-widest ${rank.color}`}>RANK: {rank.title}</span>
           <span className="text-[10px] font-bold text-slate-400 italic">{stamps.length} / {shops.length} Stamps</span>
         </div>
       </div>
 
-      <button 
-        onClick={() => router.push("/timeline")}
-        className="w-full max-w-md mb-3 bg-white text-orange-600 py-4 rounded-[24px] font-black italic shadow-sm border-2 border-orange-100 flex items-center justify-center gap-3 active:scale-95 transition-transform"
-      >
-        <span className="text-xl">🌐</span><span className="tracking-widest uppercase text-sm">World Timeline</span>
-      </button>
+      {/* ナビゲーションボタン */}
+      <div className="w-full max-w-md space-y-3 mb-6">
+        <button 
+          onClick={() => router.push("/timeline")}
+          className="w-full bg-white text-orange-600 py-4 rounded-[24px] font-black italic shadow-sm border-2 border-orange-100 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+        >
+          <span className="text-xl">🌐</span><span className="tracking-widest uppercase text-sm">World Timeline</span>
+        </button>
+
+        <button 
+          onClick={() => router.push("/ranking")} 
+          className="w-full bg-gradient-to-r from-orange-600 to-orange-400 text-white py-4 rounded-[24px] font-black italic shadow-lg shadow-orange-200 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+        >
+          <span className="text-xl">🏆</span><span className="tracking-widest uppercase text-sm">View World Ranking</span>
+        </button>
+      </div>
 
       {/* エリアタブ */}
       <div className="w-full max-w-md flex bg-white p-1.5 rounded-2xl shadow-sm border border-orange-50 mb-4">
@@ -169,7 +180,7 @@ export default function HomePage() {
                       {isGold && <span className="text-[7px] font-black px-1.5 py-0.5 bg-yellow-100 text-yellow-600 rounded-sm">GOLD</span>}
                     </div>
                     <h4 className={`font-black tracking-tight leading-none mt-1 text-xs ${isGot ? "text-slate-800" : "text-slate-300"}`}>{shop.name}</h4>
-                    <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1 block hover:underline">📝 Log</button>
+                    <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1 block">📝 Log</button>
                   </div>
                 </div>
                 <button 
