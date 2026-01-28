@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
 
-// 距離計算関数（既存）
+// 距離計算関数
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371e3;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -23,29 +23,30 @@ export default function HomePage() {
   const [diaries, setDiaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("すべて");
-  const [showUnvisitedOnly, setShowUnvisitedOnly] = useState(false); // 未訪問フィルターの状態
+  const [showUnvisitedOnly, setShowUnvisitedOnly] = useState(false);
   const router = useRouter();
 
-  // ランク計算（既存）
+  // --- アップデート：全10段階の新ランク計算 ---
   const getRank = (count: number) => {
-    if (count >= 30) return { title: "極めし麺神", color: "text-red-600", bg: "bg-red-50" };
-    if (count >= 20) return { title: "伝説のラーメン王", color: "text-purple-600", bg: "bg-purple-50" };
-    if (count >= 10) return { title: "麺界のホープ", color: "text-blue-600", bg: "bg-blue-50" };
-    if (count >= 5) return { title: "ラーメン愛好家", color: "text-green-600", bg: "bg-green-50" };
-    if (count >= 1) return { title: "駆け出し麺職人", color: "text-orange-600", bg: "bg-orange-50" };
-    return { title: "一般市民", color: "text-slate-400", bg: "bg-slate-50" };
+    if (count >= 50) return { title: "真・ラーメン大帝 👑", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200 shadow-[0_0_10px_rgba(234,179,8,0.3)]" };
+    if (count >= 45) return { title: "麺の解脱者", color: "text-fuchsia-700", bg: "bg-fuchsia-50", border: "border-fuchsia-100" };
+    if (count >= 40) return { title: "極めし麺神", color: "text-red-600", bg: "bg-red-50", border: "border-red-100" };
+    if (count >= 35) return { title: "至高の啜り手", color: "text-pink-600", bg: "bg-pink-50", border: "border-pink-100" };
+    if (count >= 30) return { title: "伝説のラーメン王", color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" };
+    if (count >= 20) return { title: "百戦錬磨の麺客", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" };
+    if (count >= 10) return { title: "麺界のホープ", color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" };
+    if (count >= 5) return { title: "ラーメン愛好家", color: "text-green-600", bg: "bg-green-50", border: "border-green-100" };
+    if (count >= 1) return { title: "駆け出し麺職人", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" };
+    return { title: "一般市民", color: "text-slate-400", bg: "bg-slate-50", border: "border-slate-100" };
   };
 
   const rank = getRank(stamps.length);
 
-  // --- フィルタリングロジックの強化 ---
+  // フィルタリングロジック
   const filteredShops = shops.filter(shop => {
-    // 1. エリア判定
     const matchesArea = activeTab === "すべて" ? true : shop.area === activeTab;
-    // 2. 未訪問判定
     const isGot = stamps.some(s => String(s.shop_id) === String(shop.id));
     const matchesUnvisited = showUnvisitedOnly ? !isGot : true;
-
     return matchesArea && matchesUnvisited;
   });
 
@@ -67,7 +68,6 @@ export default function HomePage() {
     fetchData();
   }, [router]);
 
-  // スタンプ追加・削除処理（既存通り）
   const handleAddStamp = async (shop: any) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -77,7 +77,7 @@ export default function HomePage() {
       navigator.geolocation.getCurrentPosition(async (pos) => {
         const dist = getDistance(pos.coords.latitude, pos.coords.longitude, shop.latitude, shop.longitude);
         finalType = dist <= 200 ? 'checkin' : 'memory';
-        if (dist > 200) alert("離れているため通常スタンプになります。");
+        if (dist > 200) alert(`お店から${Math.round(dist)}m離れているため通常スタンプになります。`);
         await executeInsert(user.id, shop, finalType);
       }, () => executeInsert(user.id, shop, 'memory'));
     } else { await executeInsert(user.id, shop, 'memory'); }
@@ -85,7 +85,7 @@ export default function HomePage() {
 
   const executeInsert = async (uid: string, shop: any, type: string) => {
     await supabase.from("stamps").insert({ user_id: uid, shop_id: shop.id, shop_name: shop.name, type: type });
-    fetchData(); // データを再取得
+    fetchData();
   };
 
   const handleRemoveStamp = async (sid: string) => {
@@ -97,11 +97,11 @@ export default function HomePage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING RALLY...</div>;
 
   return (
     <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans">
-      {/* ユーザーカード（既存） */}
+      {/* ユーザーカード */}
       <div className="w-full max-w-md bg-white p-6 rounded-[28px] shadow-lg border border-white mb-6">
         <div className="flex items-center">
           <div className="text-4xl mr-4">🍜</div>
@@ -111,22 +111,30 @@ export default function HomePage() {
           </div>
           <button onClick={() => router.push("/profile")} className="bg-orange-50 p-2 rounded-full">⚙️</button>
         </div>
-        <div className={`mt-4 px-4 py-2 rounded-xl border flex items-center justify-between ${rank.bg}`}>
-          <span className={`text-[10px] font-black uppercase ${rank.color}`}>RANK: {rank.title}</span>
+        {/* アップデート：ランク表示のスタイリング */}
+        <div className={`mt-4 px-4 py-2 rounded-xl border flex items-center justify-between transition-all duration-700 ${rank.bg} ${rank.border}`}>
+          <span className={`text-[10px] font-black uppercase tracking-widest ${rank.color}`}>RANK: {rank.title}</span>
           <span className="text-[10px] font-bold text-slate-400 italic">{stamps.length} / {shops.length} Stamps</span>
         </div>
       </div>
 
+      <button 
+        onClick={() => router.push("/timeline")}
+        className="w-full max-w-md mb-3 bg-white text-orange-600 py-4 rounded-[24px] font-black italic shadow-sm border-2 border-orange-100 flex items-center justify-center gap-3 active:scale-95 transition-transform"
+      >
+        <span className="text-xl">🌐</span><span className="tracking-widest uppercase text-sm">World Timeline</span>
+      </button>
+
       {/* エリアタブ */}
       <div className="w-full max-w-md flex bg-white p-1.5 rounded-2xl shadow-sm border border-orange-50 mb-4">
         {["すべて", "東京", "神奈川"].map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === tab ? "bg-orange-500 text-white" : "text-slate-400"}`}>
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${activeTab === tab ? "bg-orange-500 text-white shadow-md" : "text-slate-400"}`}>
             {tab}
           </button>
         ))}
       </div>
 
-      {/* --- 未訪問フィルタースイッチ --- */}
+      {/* 未訪問フィルタースイッチ */}
       <div className="w-full max-w-md flex items-center justify-end gap-2 mb-6 px-2">
         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">未訪問のみ表示</span>
         <button 
@@ -152,18 +160,21 @@ export default function HomePage() {
             return (
               <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex items-center justify-between">
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner ${isGot ? (isGold ? "bg-yellow-100 ring-2 ring-yellow-400" : "bg-orange-100") : "bg-slate-50 opacity-40 grayscale"}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner transition-all duration-500 ${isGot ? (isGold ? "bg-yellow-100 ring-2 ring-yellow-400 scale-110" : "bg-orange-100") : "bg-slate-50 opacity-40 grayscale"}`}>
                     {isGold ? '🏆' : (isGot ? '⭐' : '🍲')}
                   </div>
                   <div>
-                    <span className="text-[7px] font-black px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded-sm">{shop.area}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[7px] font-black px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded-sm">{shop.area}</span>
+                      {isGold && <span className="text-[7px] font-black px-1.5 py-0.5 bg-yellow-100 text-yellow-600 rounded-sm">GOLD</span>}
+                    </div>
                     <h4 className={`font-black tracking-tight leading-none mt-1 text-xs ${isGot ? "text-slate-800" : "text-slate-300"}`}>{shop.name}</h4>
-                    <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1 block">📝 Log</button>
+                    <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1 block hover:underline">📝 Log</button>
                   </div>
                 </div>
                 <button 
                   onClick={() => isGot ? handleRemoveStamp(shop.id) : handleAddStamp(shop)} 
-                  className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all ${isGot ? (isGold ? "bg-yellow-400 text-white" : "bg-orange-500 text-white") : "bg-white border-2 border-dashed border-slate-200 text-transparent"}`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all shadow-md active:scale-90 ${isGot ? (isGold ? "bg-yellow-400 text-white shadow-yellow-100" : "bg-orange-500 text-white shadow-orange-100") : "bg-white border-2 border-dashed border-slate-200 text-transparent"}`}
                 >
                   {isGot ? "🍥" : ""}
                 </button>
