@@ -8,8 +8,8 @@ export default function TimelinePage() {
   const [diaries, setDiaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const [replyTargetId, setReplyTargetId] = useState<string | null>(null); // 返信入力欄の表示制御
-  const [replyText, setReplyText] = useState(""); // 入力中の返信テキスト
+  const [replyTargetId, setReplyTargetId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
   const router = useRouter();
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function TimelinePage() {
           ...d,
           like_count: d.like_count || 0,
           is_liked: false,
-          replies: [] // 本来は別テーブルから取得しますが、表示用に用意
+          replies: []
         }));
         setDiaries(formattedData || []);
       }
@@ -43,7 +43,6 @@ export default function TimelinePage() {
     fetchTimeline();
   }, []);
 
-  // いいねトグル
   const handleLike = (diaryId: string) => {
     if (!userId) {
       alert("いいねをするにはログインが必要です");
@@ -62,7 +61,6 @@ export default function TimelinePage() {
     }));
   };
 
-  // 返信送信処理
   const submitReply = async (diaryId: string) => {
     if (!replyText.trim()) return;
     if (!userId) {
@@ -70,7 +68,6 @@ export default function TimelinePage() {
       return;
     }
 
-    // 画面上に即座に反映（モック）
     setDiaries(prev => prev.map(d => {
       if (d.id === diaryId) {
         return {
@@ -83,7 +80,6 @@ export default function TimelinePage() {
 
     setReplyText("");
     setReplyTargetId(null);
-    alert("返信を送信しました！");
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING...</div>;
@@ -99,7 +95,6 @@ export default function TimelinePage() {
       <div className="w-full max-w-md space-y-8">
         {diaries.map((diary) => (
           <div key={diary.id} className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-white">
-            {/* ヘッダー */}
             <div className="px-6 py-4 flex items-center gap-3 bg-slate-50/50">
               <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-[10px] font-black text-orange-500">
                 {diary.profiles?.nickname?.charAt(0) || "U"}
@@ -107,7 +102,6 @@ export default function TimelinePage() {
               <span className="text-xs font-black text-slate-700 uppercase">{diary.profiles?.nickname || "Guest"}</span>
             </div>
 
-            {/* 写真 */}
             {diary.image_url && (
               <div className="w-full aspect-square overflow-hidden bg-slate-100">
                 <img src={diary.image_url} alt="Ramen" className="w-full h-full object-cover" />
@@ -115,7 +109,6 @@ export default function TimelinePage() {
             )}
             
             <div className="p-6">
-              {/* 店舗・評価 */}
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-[9px] font-black text-orange-500 uppercase">{diary.master_shops?.area}</p>
@@ -128,7 +121,6 @@ export default function TimelinePage() {
                 </div>
               </div>
 
-              {/* コメント本体 */}
               <div className="flex gap-3 mb-6 bg-slate-50 p-4 rounded-2xl">
                 <span className="text-lg">💬</span>
                 <p className="text-sm text-slate-600 leading-relaxed font-medium italic">
@@ -136,35 +128,34 @@ export default function TimelinePage() {
                 </p>
               </div>
 
-              {/* 返信一覧（復活） */}
+              {/* 返信一覧 */}
               {diary.replies && diary.replies.length > 0 && (
                 <div className="mb-6 ml-6 space-y-3 border-l-2 border-slate-100 pl-4">
                   {diary.replies.map((reply: any, idx: number) => (
-                    <div key={idx} className="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg">
-                      <span className="font-black text-orange-400 mr-2">{reply.user}:</span>
+                    <div key={idx} className="text-xs text-slate-900 bg-slate-50 p-2 rounded-lg font-medium">
+                      <span className="font-black text-orange-500 mr-2">{reply.user}:</span>
                       {reply.text}
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* 返信入力欄（復活） */}
+              {/* 返信入力欄 - 文字色を slate-900 (黒) に変更 */}
               {replyTargetId === diary.id && (
                 <div className="mb-6 animate-in fade-in slide-in-from-top-2">
                   <textarea
-                    className="w-full bg-slate-50 rounded-xl p-3 text-xs outline-none focus:ring-2 focus:ring-blue-100 h-20"
+                    className="w-full bg-slate-100 rounded-xl p-3 text-xs text-slate-900 font-bold outline-none focus:ring-2 focus:ring-blue-200 h-20 placeholder:text-slate-400"
                     placeholder="返信を入力..."
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
                   />
                   <div className="flex justify-end gap-2 mt-2">
-                    <button onClick={() => setReplyTargetId(null)} className="text-[10px] font-black text-slate-400 uppercase">Cancel</button>
-                    <button onClick={() => submitReply(diary.id)} className="px-4 py-1 bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase">Send</button>
+                    <button onClick={() => setReplyTargetId(null)} className="text-[10px] font-black text-slate-400 uppercase px-2 py-1">Cancel</button>
+                    <button onClick={() => submitReply(diary.id)} className="px-4 py-1 bg-blue-500 text-white rounded-lg text-[10px] font-black uppercase shadow-sm shadow-blue-100">Send</button>
                   </div>
                 </div>
               )}
 
-              {/* アクションバー */}
               <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                 <div className="flex gap-6">
                   <button onClick={() => handleLike(diary.id)} className="flex items-center gap-2 group">
