@@ -12,16 +12,14 @@ export default function TimelinePage() {
 
   useEffect(() => {
     const fetchTimeline = async () => {
-      // 1. ログインユーザーの確認
       const { data: { user } } = await supabase.auth.getUser();
       setUserId(user?.id || null);
 
-      // 2. 日記・名前・店名の取得（プロフィールがなくても取得できるLeft Join形式）
       const { data, error } = await supabase
         .from("diaries")
         .select(`
           *,
-          profiles (nickname),
+          profiles:user_id (nickname, avatar_url),
           master_shops (name, area)
         `)
         .eq("status", "public")
@@ -30,21 +28,36 @@ export default function TimelinePage() {
       if (error) {
         console.error("Timeline Error:", error);
       } else {
-        setDiaries(data || []);
+        // いいね数（like_count）を擬似的に初期化、またはDBから取得
+        const formattedData = data?.map(d => ({
+          ...d,
+          like_count: d.like_count || 0,
+          is_liked: false
+        }));
+        setDiaries(formattedData || []);
       }
       setLoading(false);
     };
     fetchTimeline();
   }, []);
 
-  // いいね機能
+  // いいね機能のカウンター連動
   const handleLike = async (diaryId: string) => {
     if (!userId) {
       alert("いいねをするにはログインが必要です");
       return;
     }
-    // ここにいいねのDB保存処理がある場合は追記
-    alert("いいね！しました❤️");
+
+    // 画面上の数字を即座に増やす（楽観的更新）
+    setDiaries(prev => prev.map(d => {
+      if (d.id === diaryId) {
+        return { ...d, like_count: d.like_count + 1, is_liked: true };
+      }
+      return d;
+    }));
+
+    // 本来はここで supabase.from('likes').insert(...) を行いますが、
+    // 現状はフロントエンドでのカウントアップを優先します
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING...</div>;
@@ -58,68 +71,69 @@ export default function TimelinePage() {
       </div>
 
       <div className="w-full max-w-md space-y-8">
-        {diaries && diaries.length > 0 ? (
-          diaries.map((diary) => (
-            <div key={diary.id} className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-white">
-              {/* 1. 投稿者ヘッダー */}
-              <div className="px-6 py-3 bg-slate-50/50 flex items-center gap-2">
-                <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center text-[8px] font-black text-orange-500">
-                  {diary.profiles?.nickname?.charAt(0) || "U"}
+        {diaries.map((diary) => (
+          <div key={diary.id} className="bg-white rounded-[32px] overflow-hidden shadow-xl border border-white">
+            {/* ユーザーヘッダー */}
+            <div className="px-6 py-4 flex items-center gap-3 bg-slate-50/50">
+              <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center text-[10px] font-black text-orange-500">
+                {diary.profiles?.nickname?.charAt(0) || "U"}
+              </div>
+              <span className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                {diary.profiles?.nickname || "Guest User"}
+              </span>
+            </div>
+
+            {/* 写真 */}
+            {diary.image_url && (
+              <div className="w-full aspect-square overflow-hidden">
+                <img src={diary.image_url} alt="Ramen" className="w-full h-full object-cover" />
+              </div>
+            )}
+            
+            <div className="p-6">
+              {/* 店舗と評価 */}
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-[9px] font-black text-orange-500 uppercase mb-1">{diary.master_shops?.area}</p>
+                  <h3 className="text-lg font-black text-slate-800">{diary.master_shops?.name}</h3>
                 </div>
-                <span className="text-[10px] font-black text-slate-600 uppercase">
-                  {diary.profiles?.nickname || "Guest User"}
+                <div className="flex text-xs">
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i} className={i < diary.rating ? "grayscale-0" : "grayscale opacity-20"}>⭐</span>
+                  ))}
+                </div>
+              </div>
+
+              {/* コメントセクション（アイコン付き） */}
+              <div className="flex gap-3 mb-6 bg-slate-50 p-4 rounded-2xl">
+                <span className="text-lg">💬</span>
+                <p className="text-sm text-slate-600 leading-relaxed italic">
+                  {diary.comment || "No comment."}
+                </p>
+              </div>
+
+              {/* いいねカウンター */}
+              <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                <button 
+                  onClick={() => handleLike(diary.id)}
+                  className="flex items-center gap-2 group"
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${diary.is_liked ? "bg-pink-100 scale-110" : "bg-slate-50"}`}>
+                    <span className="text-lg">{diary.is_liked ? "❤️" : "🤍"}</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-slate-400 uppercase">Like</span>
+                    <span className="text-xs font-black text-slate-800">{diary.like_count}</span>
+                  </div>
+                </button>
+                
+                <span className="text-[9px] font-bold text-slate-300">
+                  {new Date(diary.created_at).toLocaleDateString()}
                 </span>
               </div>
-
-              {/* 2. ラーメン写真 */}
-              {diary.image_url && (
-                <div className="w-full aspect-square overflow-hidden bg-slate-100">
-                  <img src={diary.image_url} alt="Ramen" className="w-full h-full object-cover" />
-                </div>
-              )}
-              
-              <div className="p-6">
-                {/* 3. 店舗情報と星評価 */}
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <p className="text-[9px] font-black text-orange-500 uppercase mb-1">{diary.master_shops?.area}</p>
-                    <h3 className="text-lg font-black text-slate-800">{diary.master_shops?.name}</h3>
-                  </div>
-                  <div className="flex text-xs">
-                    {[...Array(5)].map((_, i) => (
-                      <span key={i} className={i < (diary.rating || 0) ? "grayscale-0" : "grayscale opacity-20"}>⭐</span>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 4. コメント部分 (ここに感想が表示されます) */}
-                <div className="mb-6">
-                  <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                    {diary.comment || "コメントはありません"}
-                  </p>
-                </div>
-
-                {/* 5. いいねボタンと日付 */}
-                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                  <button 
-                    onClick={() => handleLike(diary.id)} 
-                    className="flex items-center gap-2 group active:scale-90 transition-transform"
-                  >
-                    <span className="text-lg">❤️</span>
-                    <span className="text-xs font-bold text-slate-400 group-hover:text-pink-500">Like</span>
-                  </button>
-                  <span className="text-[9px] font-bold text-slate-300 uppercase">
-                    {new Date(diary.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
             </div>
-          ))
-        ) : (
-          <div className="text-center py-20 text-slate-300 font-black italic text-xs uppercase">
-            No public logs found.
           </div>
-        )}
+        ))}
       </div>
     </main>
   );
