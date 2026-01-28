@@ -11,13 +11,15 @@ export default function TimelinePage() {
 
   useEffect(() => {
     const fetchTimeline = async () => {
-      // 公開設定(public)の日記を取得。master_shopsから店名を結合
+      // 修正ポイント：結合を少し緩めて、日記データを確実に取得する
       const { data, error } = await supabase
         .from("diaries")
         .select(`
           *,
-          profiles(nickname),
-          master_shops(name, area)
+          master_shops (
+            name,
+            area
+          )
         `)
         .eq("status", "public")
         .order("created_at", { ascending: false });
@@ -25,6 +27,8 @@ export default function TimelinePage() {
       if (error) {
         console.error("Timeline Error:", error);
       } else {
+        // デバッグ用：取得したデータをコンソールで確認
+        console.log("Fetched diaries:", data);
         setDiaries(data || []);
       }
       setLoading(false);
@@ -43,10 +47,9 @@ export default function TimelinePage() {
       </div>
 
       <div className="w-full max-w-md space-y-6">
-        {diaries.length > 0 ? (
+        {diaries && diaries.length > 0 ? (
           diaries.map((diary) => (
             <div key={diary.id} className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-orange-50">
-              {/* 写真の表示 */}
               {diary.image_url && (
                 <div className="w-full aspect-video overflow-hidden">
                   <img src={diary.image_url} alt="Ramen" className="w-full h-full object-cover" />
@@ -56,16 +59,16 @@ export default function TimelinePage() {
               <div className="p-6">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest leading-none mb-1">
+                    <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1">
                       {diary.master_shops?.area || "Area Unknown"}
                     </p>
                     <h3 className="text-lg font-black text-slate-800 leading-tight">
-                      {diary.master_shops?.name || "Shop Name"}
+                      {diary.master_shops?.name || "Unknown Shop"}
                     </h3>
                   </div>
                   <div className="flex text-xs">
                     {[...Array(5)].map((_, i) => (
-                      <span key={i} className={i < diary.rating ? "grayscale-0" : "grayscale opacity-20"}>⭐</span>
+                      <span key={i} className={i < (diary.rating || 0) ? "grayscale-0" : "grayscale opacity-20"}>⭐</span>
                     ))}
                   </div>
                 </div>
@@ -76,10 +79,7 @@ export default function TimelinePage() {
 
                 <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    Post by: <span className="text-slate-800">{diary.profiles?.nickname || "Guest"}</span>
-                  </span>
-                  <span className="text-[9px] font-bold text-slate-300">
-                    {new Date(diary.created_at).toLocaleDateString()}
+                    Posted on: {new Date(diary.created_at).toLocaleDateString()}
                   </span>
                 </div>
               </div>
@@ -87,7 +87,7 @@ export default function TimelinePage() {
           ))
         ) : (
           <div className="text-center py-20 text-slate-300 font-black italic text-xs uppercase tracking-widest leading-loose">
-            No public logs yet.<br />Be the first to share your ramen journey!
+            No public logs yet.
           </div>
         )}
       </div>
