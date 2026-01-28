@@ -4,9 +4,15 @@ import { useEffect, useState, use } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useRouter } from "next/navigation";
 
-export default function DiaryPage({ params }: { params: Promise<{ id: string }> }) {
-  // Promise形式のparamsを安全に展開
-  const { id } = use(params);
+// Next.jsの最新仕様に合わせた型の定義
+interface PageProps {
+  params: Promise<{ id: string }>;
+}
+
+export default function DiaryPage({ params }: PageProps) {
+  // Promiseをアンラップ
+  const resolvedParams = use(params);
+  const id = resolvedParams.id;
   
   const [shop, setShop] = useState<any>(null);
   const [rating, setRating] = useState(5);
@@ -17,7 +23,6 @@ export default function DiaryPage({ params }: { params: Promise<{ id: string }> 
 
   useEffect(() => {
     const fetchShop = async () => {
-      // master_shopsから店舗情報を取得
       const { data } = await supabase.from("master_shops").select("*").eq("id", id).single();
       if (data) setShop(data);
       setLoading(false);
@@ -34,7 +39,6 @@ export default function DiaryPage({ params }: { params: Promise<{ id: string }> 
       return;
     }
 
-    // 保存処理：master_shop_id カラムに値を入れます
     const { error } = await supabase.from("diaries").insert({
       user_id: user.id,
       master_shop_id: id, 
@@ -65,13 +69,20 @@ export default function DiaryPage({ params }: { params: Promise<{ id: string }> 
           <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Rating</label>
           <div className="flex gap-2 text-2xl">
             {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} onClick={() => setRating(n)} className={rating >= n ? "grayscale-0" : "grayscale opacity-20"}>⭐</button>
+              <button 
+                key={n} 
+                type="button"
+                onClick={() => setRating(n)} 
+                className={rating >= n ? "grayscale-0" : "grayscale opacity-20"}
+              >
+                ⭐
+              </button>
             ))}
           </div>
         </div>
 
         <textarea
-          className="w-full h-32 bg-slate-50 rounded-2xl p-4 mb-6 outline-none focus:ring-2 focus:ring-orange-100"
+          className="w-full h-32 bg-slate-50 rounded-2xl p-4 mb-6 outline-none focus:ring-2 focus:ring-orange-100 text-sm"
           placeholder="味の感想を書こう..."
           value={comment}
           onChange={(e) => setComment(e.target.value)}
@@ -80,7 +91,7 @@ export default function DiaryPage({ params }: { params: Promise<{ id: string }> 
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black italic uppercase shadow-lg shadow-orange-100 active:scale-95 transition-transform"
+          className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black italic uppercase shadow-lg shadow-orange-100 active:scale-95 transition-transform disabled:bg-slate-300"
         >
           {saving ? "SAVING..." : "Save Memory"}
         </button>
