@@ -5,7 +5,7 @@ import { supabase } from "../../../lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function DiaryPage({ params }: { params: Promise<{ id: string }> }) {
-  // Promise形式のparamsをアンラップ
+  // Promise形式のparamsを安全に展開
   const { id } = use(params);
   
   const [shop, setShop] = useState<any>(null);
@@ -17,18 +17,9 @@ export default function DiaryPage({ params }: { params: Promise<{ id: string }> 
 
   useEffect(() => {
     const fetchShop = async () => {
-      // master_shopsテーブルからお店の情報を取得
-      const { data, error } = await supabase
-        .from("master_shops")
-        .select("*")
-        .eq("id", id)
-        .single();
-      
-      if (data) {
-        setShop(data);
-      } else {
-        console.error("Shop not found:", error);
-      }
+      // master_shopsから店舗情報を取得
+      const { data } = await supabase.from("master_shops").select("*").eq("id", id).single();
+      if (data) setShop(data);
       setLoading(false);
     };
     fetchShop();
@@ -40,76 +31,56 @@ export default function DiaryPage({ params }: { params: Promise<{ id: string }> 
     
     if (!user) {
       alert("ログインが必要です");
-      router.push("/login");
       return;
     }
 
-    // --- ここが修正の重要ポイント ---
-    // shop_id ではなく master_shop_id として保存する
+    // 保存処理：master_shop_id カラムに値を入れます
     const { error } = await supabase.from("diaries").insert({
       user_id: user.id,
-      master_shop_id: id, // URLから取得したID（master_shopsのID）
+      master_shop_id: id, 
       rating: rating,
       comment: comment,
     });
 
     if (error) {
-      console.error("Save error:", error);
+      console.error("Save Error:", error);
       alert("保存に失敗しました: " + error.message);
       setSaving(false);
     } else {
       alert("日記を保存しました！🍜");
-      router.push("/"); // 保存後はホームへ戻る
+      router.push("/");
     }
   };
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING SHOP DATA...</div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">LOADING...</div>;
 
   return (
-    <main className="p-6 bg-[#FFF9F5] min-h-screen font-sans flex flex-col items-center">
-      <div className="w-full max-w-md flex justify-between items-center mb-8">
-        <button onClick={() => router.back()} className="text-slate-400 font-bold text-sm">← Back</button>
-        <h1 className="text-lg font-black text-slate-800 italic uppercase tracking-tighter">Ramen Log</h1>
-        <div className="w-10"></div>
-      </div>
-
-      <div className="w-full max-w-md bg-white p-8 rounded-[32px] shadow-xl shadow-orange-100/20 border border-white">
-        <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-1">{shop?.area}</p>
-        <h2 className="text-2xl font-black text-slate-800 mb-6 leading-tight">{shop?.name}</h2>
-
-        <div className="mb-8">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Rating</label>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((num) => (
-              <button
-                key={num}
-                onClick={() => setRating(num)}
-                className={`text-2xl transition-all duration-200 ${rating >= num ? "grayscale-0 scale-110" : "grayscale opacity-20"}`}
-              >
-                ⭐
-              </button>
+    <main className="p-6 bg-[#FFF9F5] min-h-screen font-sans flex flex-col items-center text-slate-800">
+      <div className="w-full max-w-md bg-white p-8 rounded-[32px] shadow-lg border border-white mt-10">
+        <h2 className="text-2xl font-black mb-6 italic tracking-tighter">
+          {shop?.name || "SHOP LOG"}
+        </h2>
+        
+        <div className="mb-6">
+          <label className="text-[10px] font-black text-slate-400 uppercase block mb-2">Rating</label>
+          <div className="flex gap-2 text-2xl">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button key={n} onClick={() => setRating(n)} className={rating >= n ? "grayscale-0" : "grayscale opacity-20"}>⭐</button>
             ))}
           </div>
         </div>
 
-        <div className="mb-8">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-3">Review Comment</label>
-          <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            placeholder="麺の太さ、スープの味、お店の雰囲気など..."
-            className="w-full h-32 bg-slate-50 border-none rounded-2xl p-4 text-sm text-slate-700 focus:ring-2 focus:ring-orange-200 outline-none resize-none transition-all"
-          />
-        </div>
+        <textarea
+          className="w-full h-32 bg-slate-50 rounded-2xl p-4 mb-6 outline-none focus:ring-2 focus:ring-orange-100"
+          placeholder="味の感想を書こう..."
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+        />
 
         <button
           onClick={handleSave}
           disabled={saving}
-          className={`w-full py-4 rounded-[20px] font-black italic tracking-widest uppercase transition-all shadow-lg ${
-            saving 
-              ? "bg-slate-200 text-slate-400 cursor-not-allowed" 
-              : "bg-orange-500 text-white shadow-orange-200 hover:bg-orange-600 active:scale-95"
-          }`}
+          className="w-full py-4 bg-orange-500 text-white rounded-2xl font-black italic uppercase shadow-lg shadow-orange-100 active:scale-95 transition-transform"
         >
           {saving ? "SAVING..." : "Save Memory"}
         </button>
