@@ -95,8 +95,9 @@ export default function HomePage() {
         </button>
 
         {/* ワールドダイアリー（交流・コメント機能） */}
+        {/* ★ここを /diary から /diaries に書き換えました★ */}
         <button 
-          onClick={() => router.push('/diary')}
+          onClick={() => router.push('/diaries')}
           className="w-full bg-white border-2 border-orange-100 p-5 rounded-[28px] flex items-center justify-between shadow-sm active:scale-95 transition-all text-left"
         >
           <div className="flex items-center space-x-4">
