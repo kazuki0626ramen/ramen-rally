@@ -1,100 +1,98 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function HomePage() {
-  const [nickname, setNickname] = useState<string>("Guest User");
-  const [userLevel, setUserLevel] = useState<number>(1);
-  const [totalExp, setTotalExp] = useState<number>(0);
-  const [stampsCount, setStampsCount] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const getRank = (count: number) => {
-    if (count >= 50) return { title: "真・ラーメン大帝 👑", color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200 shadow-[0_0_10px_rgba(234,179,8,0.3)]" };
-    if (count >= 20) return { title: "百戦錬磨の麺客", color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" };
-    if (count >= 1) return { title: "駆け出し麺職人", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" };
-    return { title: "一般市民", color: "text-slate-400", bg: "bg-slate-50", border: "border-slate-100" };
-  };
-
-  const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { router.push("/login"); return; }
-    
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("nickname, total_exp")
-      .eq("id", user.id)
-      .single();
-
-    if (profile) {
-      setNickname(profile.nickname || "Guest");
-      const exp = profile.total_exp || 0;
-      setTotalExp(exp);
-      // 10点ごとにLvアップ
-      setUserLevel(Math.floor(exp / 10) + 1);
+  useEffect(() => {
+    async function fetchProfile() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        setProfile(data);
+      }
+      setLoading(false);
     }
-
-    const { data: stampData } = await supabase.from("stamps").select("id").eq("user_id", user.id);
-    setStampsCount(stampData?.length || 0);
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchData(); }, []);
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">Loading Ramen World...</div>;
-
-  const rank = getRank(stampsCount);
-  const evolutionStage = Math.ceil(userLevel / 5);
+    fetchProfile();
+  }, []);
 
   return (
-    <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans">
-      <div className="w-full max-w-md flex justify-between items-center mb-6">
-        <h1 className="text-xl font-black italic text-orange-600 tracking-tighter">RAMEN RALLY 50</h1>
-        <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase">Logout</button>
-      </div>
-
-      <div className="w-full max-w-md bg-white p-6 rounded-[28px] shadow-lg border border-white mb-8">
-        <div className="flex items-center">
-          <div className="relative mr-4">
-            <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center text-3xl border-2 border-orange-100 overflow-hidden">
-               {userLevel >= 15 ? "🔥" : userLevel >= 10 ? "👨‍🍳" : userLevel >= 5 ? "🍜" : "👶"}
+    <main className="p-6 bg-[#FFF9F5] min-h-screen font-sans flex flex-col items-center">
+      {/* ヘッダー・プロフィール表示 */}
+      <div className="w-full max-w-md bg-white p-8 rounded-[40px] shadow-sm border border-orange-50 mb-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4 opacity-10 text-6xl">🍜</div>
+        <div className="relative z-10">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Current Level</p>
+          <h2 className="text-4xl font-black italic text-orange-600 tracking-tighter mb-4">
+            LV.{profile?.level || 1}
+          </h2>
+          <div className="flex justify-between items-end">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Exp</p>
+              <p className="text-2xl font-black text-slate-800">{profile?.total_exp || 0}</p>
             </div>
-            <div className="absolute -bottom-1 -right-1 bg-orange-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white">
-              Lv.{userLevel}
+            <div className="text-right">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Eaten</p>
+              <p className="text-2xl font-black text-slate-800">{profile?.total_eaten || 0} <span className="text-sm">杯</span></p>
             </div>
           </div>
-          <div className="flex-1 text-left">
-            <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Rally Member</p>
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">{nickname}</h2>
-            <p className="text-[9px] font-bold text-orange-400 uppercase tracking-tighter">Total EXP: {totalExp}</p>
-          </div>
-          <button onClick={() => router.push("/profile")} className="bg-orange-50 p-2 rounded-full shadow-sm">⚙️</button>
-        </div>
-        <div className={`mt-4 px-4 py-2 rounded-xl border flex items-center justify-between ${rank.bg} ${rank.border}`}>
-          <span className={`text-[10px] font-black uppercase tracking-widest ${rank.color}`}>RANK: {rank.title}</span>
-          <span className="text-[10px] font-bold text-slate-400 italic">{stampsCount} / 50 Stamps</span>
         </div>
       </div>
 
+      {/* メインアクション：記録する */}
+      <button 
+        onClick={() => router.push('/diary/default/new')}
+        className="w-full max-w-md bg-orange-600 text-white p-6 rounded-[32px] shadow-xl shadow-orange-100 flex items-center justify-center space-x-3 active:scale-95 transition-all mb-8"
+      >
+        <span className="text-2xl">➕</span>
+        <span className="text-lg font-black tracking-widest uppercase">Post New Record</span>
+      </button>
+
+      {/* サブアクション：ランキングと日記 */}
       <div className="w-full max-w-md grid grid-cols-1 gap-4">
-        <button onClick={() => router.push("/stamps")} className="w-full bg-gradient-to-br from-orange-500 to-red-600 text-white p-6 rounded-[32px] shadow-xl flex items-center justify-between group active:scale-95 transition-all">
-          <div className="text-left">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Collection</span>
-            <h3 className="text-xl font-black italic tracking-wider">STAMP RALLY 🍜</h3>
+        {/* ランキングボタン */}
+        <button 
+          onClick={() => router.push('/ranking')}
+          className="w-full bg-white border-2 border-orange-100 p-6 rounded-[32px] flex items-center justify-between shadow-sm active:scale-95 transition-all"
+        >
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-2xl">🏆</div>
+            <div className="text-left">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global</div>
+              <div className="text-lg font-black italic text-orange-600 tracking-tighter uppercase">Stamp Rally</div>
+            </div>
           </div>
-          <span className="text-4xl group-hover:rotate-12 transition-transform">🍥</span>
+          <span className="text-orange-200 font-bold">→</span>
         </button>
 
+        {/* 日記ボタン */}
         <button 
-          onClick={() => router.push("/diary/default/new")} 
-          className="w-full bg-white p-5 rounded-[28px] shadow-sm border-2 border-dashed border-orange-200 flex items-center justify-center gap-3 text-orange-600 active:scale-95 transition-all"
+          onClick={() => router.push('/diaries')}
+          className="w-full bg-white border-2 border-orange-100 p-6 rounded-[32px] flex items-center justify-between shadow-sm active:scale-95 transition-all"
         >
-          <span className="text-xl">✍️</span>
-          <span className="text-xs font-black uppercase tracking-widest">New Record</span>
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-2xl">📖</div>
+            <div className="text-left">
+              <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Personal</div>
+              <div className="text-lg font-black italic text-orange-600 tracking-tighter uppercase">Diary History</div>
+            </div>
+          </div>
+          <span className="text-orange-200 font-bold">→</span>
         </button>
+      </div>
+
+      {/* フッター（ログアウトなどが必要な場合） */}
+      <div className="mt-12 opacity-30 text-[10px] font-black tracking-widest text-slate-400 uppercase">
+        Ramen Rally v1.0
       </div>
     </main>
   );
