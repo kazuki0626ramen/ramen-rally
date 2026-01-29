@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-// パスをリポジトリ構成に合わせた相対パスに修正（ビルドエラー回避）
+// パスをリポジトリ構成に合わせた相対パスに修正
 import { supabase } from "../../../../lib/supabase";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 
@@ -47,9 +47,12 @@ export default function NewDiaryPage() {
         is_public: isPublic,
       });
 
-      if (diaryError) throw diaryError;
+      if (diaryError) {
+        console.error("Diary Insert Error:", diaryError.message);
+        throw new Error(`日記の保存に失敗しました: ${diaryError.message}`);
+      }
 
-      // 2. 経験値+1の加算ロジック（強化版）
+      // 2. 経験値+1の加算ロジック
       // 最新の経験値を再取得
       const { data: profile, error: fetchError } = await supabase
         .from("profiles")
@@ -58,29 +61,33 @@ export default function NewDiaryPage() {
         .single();
 
       if (fetchError) {
-        console.error("プロフィール取得失敗:", fetchError.message);
+        console.error("Profile Fetch Error:", fetchError.message);
+        throw new Error("プロフィールの取得に失敗しました。");
       }
 
-      // 現在の値がnullなら0として扱い、+1する
       const currentExp = profile?.total_exp ?? 0;
       const nextExp = currentExp + 1;
 
+      // 重要：DBの値を更新
       const { error: expError } = await supabase
         .from("profiles")
         .update({ total_exp: nextExp })
         .eq("id", user.id);
 
       if (expError) {
-        console.error("経験値更新失敗:", expError.message);
-        alert("記録は保存されましたが、経験値の更新に失敗しました。");
+        // ここでエラーが出る場合はRLSのUPDATEポリシーが原因です
+        console.error("Exp Update Error:", expError.message);
+        alert(`記録は保存されましたが、DBの経験値更新に失敗しました: ${expError.message}`);
       } else {
         alert(`記録完了！経験値が ${nextExp} になりました 🍜`);
       }
 
+      // 成功・失敗に関わらず、日記が保存されていればホームへ戻す
       router.push("/"); 
       router.refresh();
+
     } catch (error: any) {
-      alert("保存エラー: " + error.message);
+      alert("エラーが発生しました: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -94,6 +101,7 @@ export default function NewDiaryPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="w-full max-w-md space-y-6">
+        {/* 店名入力 */}
         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-orange-50">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Shop Name</label>
           <input 
@@ -105,6 +113,7 @@ export default function NewDiaryPage() {
           />
         </div>
 
+        {/* 写真URL入力 */}
         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-orange-50">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Photo URL</label>
           <input 
@@ -116,6 +125,7 @@ export default function NewDiaryPage() {
           />
         </div>
 
+        {/* 公開設定トグル */}
         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-orange-50 flex items-center justify-between">
           <div>
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Public Setting</label>
@@ -130,6 +140,7 @@ export default function NewDiaryPage() {
           </button>
         </div>
 
+        {/* メモ */}
         <div className="bg-white p-6 rounded-[32px] shadow-sm border border-orange-50">
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-2">Memo</label>
           <textarea 
