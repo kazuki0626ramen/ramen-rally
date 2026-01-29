@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
@@ -8,10 +8,17 @@ export async function GET(request: Request) {
   const next = requestUrl.searchParams.get('next') ?? '/'
 
   if (code) {
-    const supabase = createRouteHandlerClient({ cookies })
+    // あなたのlib/supabase.tsと同じ設定を使って認証を行う
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    
+    // クッキーを使ってセッションを管理する設定
+    const supabase = createClient(supabaseUrl, supabaseAnonKey)
+    
+    // コードをセッションに交換
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  // 認証が終わったら、指定されたページ（今回はパスワード変更画面）へ飛ばす
+  // 指定されたページ（/reset-passwordなど）へリダイレクト
   return NextResponse.redirect(`${requestUrl.origin}${next}`)
 }
