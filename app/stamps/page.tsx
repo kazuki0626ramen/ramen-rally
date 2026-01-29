@@ -48,7 +48,7 @@ export default function StampsPage() {
     } else { await executeInsert(user.id, shop, 'memory'); }
   };
 
-  // --- 経験値加算ロジックを追加した挿入関数 ---
+  // --- 経験値加算：エラーログを詳細に出すように修正 ---
   const executeInsert = async (uid: string, shop: any, type: string) => {
     // 1. スタンプを保存
     const { error: stampError } = await supabase
@@ -56,34 +56,46 @@ export default function StampsPage() {
       .insert({ user_id: uid, shop_id: shop.id, shop_name: shop.name, type });
 
     if (stampError) {
+      console.error("スタンプ保存エラー:", stampError.message);
       alert("スタンプの保存に失敗しました");
       return;
     }
 
-    // 2. 現在の経験値を取得して +5 更新
-    const { data: profile } = await supabase
+    // 2. 現在の経験値を「最新の状態」で取得
+    const { data: profile, error: fetchError } = await supabase
       .from("profiles")
       .select("total_exp")
       .eq("id", uid)
       .single();
 
+    if (fetchError) {
+      console.error("プロファイル取得エラー:", fetchError.message);
+    }
+
     const currentExp = profile?.total_exp || 0;
-    await supabase
+
+    // 3. 経験値を更新
+    const { error: updateError } = await supabase
       .from("profiles")
       .update({ total_exp: currentExp + 5 })
       .eq("id", uid);
 
-    alert(`スタンプGET！経験値+5を獲得しました 🍥`);
+    if (updateError) {
+      console.error("経験値更新エラー:", updateError.message);
+      alert("スタンプは押せましたが、経験値の更新に失敗しました。RLS設定を確認してください。");
+    } else {
+      alert(`スタンプGET！経験値+5 (Total: ${currentExp + 5}) 🍥`);
+    }
+
     fetchData(); 
   };
 
-  // --- 経験値減算ロジックを追加した削除関数 ---
+  // --- 経験値減算ロジック ---
   const handleRemoveStamp = async (shopId: string) => {
-    if (!confirm("スタンプを取り消しますか？（獲得した経験値も減ります）")) return;
+    if (!confirm("スタンプを取り消しますか？（経験値も5減ります）")) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // 1. スタンプを削除
     const { error: deleteError } = await supabase
       .from("stamps")
       .delete()
@@ -95,7 +107,6 @@ export default function StampsPage() {
       return;
     }
 
-    // 2. 現在の経験値を取得して -5 更新
     const { data: profile } = await supabase
       .from("profiles")
       .select("total_exp")
@@ -105,7 +116,7 @@ export default function StampsPage() {
     const currentExp = profile?.total_exp || 0;
     await supabase
       .from("profiles")
-      .update({ total_exp: Math.max(0, currentExp - 5) }) // 0以下にはならないように
+      .update({ total_exp: Math.max(0, currentExp - 5) })
       .eq("id", user.id);
 
     fetchData();
