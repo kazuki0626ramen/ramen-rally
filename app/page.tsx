@@ -94,17 +94,16 @@ export default function HomePage() {
           <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-orange-200 text-xs">→</div>
         </button>
 
-        {/* ワールドダイアリー（交流・コメント機能） */}
-        {/* ★ここを /diary から /diaries に書き換えました★ */}
+        {/* タイムライン（旧：ワールドダイアリー） */}
         <button 
-          onClick={() => router.push('/diaries')}
+          onClick={() => router.push('/diary')}
           className="w-full bg-white border-2 border-orange-100 p-5 rounded-[28px] flex items-center justify-between shadow-sm active:scale-95 transition-all text-left"
         >
           <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-xl">🌎</div>
+            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-xl">🌏</div>
             <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Social Feed</div>
-              <div className="text-md font-black italic text-orange-600 tracking-tighter uppercase">World Diary</div>
+              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Global Feed</div>
+              <div className="text-md font-black italic text-orange-600 tracking-tighter uppercase">Timeline</div>
             </div>
           </div>
           <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-orange-200 text-xs">→</div>
@@ -113,7 +112,7 @@ export default function HomePage() {
       </div>
 
       <div className="mt-10 opacity-30 text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase">
-        Ramen Rally Integrated UI v1.4
+        Ramen Rally Integrated UI v1.5
       </div>
     </main>
   );
