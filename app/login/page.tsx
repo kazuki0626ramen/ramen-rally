@@ -93,6 +93,19 @@ export default function LoginPage() {
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </button>
 
+{/* パスワード再設定リンク */}
+<div className="flex justify-center -mt-2">
+  <button
+    type="button"
+    onClick={() => router.push("/forgot-password")}
+    className="text-white/50 text-[10px] hover:text-orange-200 transition-colors"
+  >
+    パスワードを忘れた方はこちら 🍥
+  </button>
+</div>
+
+
+
             {/* 新規登録ボタン */}
             <button
               type="button"
