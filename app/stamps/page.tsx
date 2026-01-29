@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { useRouter } from "next/navigation";
 
-// 距離計算ロジック（そのまま維持）
 const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371e3;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -25,7 +24,6 @@ export default function StampsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
     
-    // マスターショップ情報と自分のスタンプ情報を取得
     const { data: shopData } = await supabase.from("master_shops").select("*").order("area", { ascending: false });
     if (shopData) setShops(shopData);
     const { data: stampData } = await supabase.from("stamps").select("*").eq("user_id", user.id);
@@ -36,7 +34,6 @@ export default function StampsPage() {
 
   useEffect(() => { fetchData(); }, [router]);
 
-  // スタンプ追加ロジック（そのまま維持）
   const handleAddStamp = async (shop: any) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -51,21 +48,69 @@ export default function StampsPage() {
     } else { await executeInsert(user.id, shop, 'memory'); }
   };
 
+  // --- 経験値加算ロジックを追加した挿入関数 ---
   const executeInsert = async (uid: string, shop: any, type: string) => {
-    await supabase.from("stamps").insert({ user_id: uid, shop_id: shop.id, shop_name: shop.name, type });
-    fetchData(); // 再読み込み
-  };
+    // 1. スタンプを保存
+    const { error: stampError } = await supabase
+      .from("stamps")
+      .insert({ user_id: uid, shop_id: shop.id, shop_name: shop.name, type });
 
-  const handleRemoveStamp = async (shopId: string) => {
-    if (!confirm("スタンプを取り消しますか？")) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("stamps").delete().eq("user_id", user.id).eq("shop_id", shopId);
-      fetchData();
+    if (stampError) {
+      alert("スタンプの保存に失敗しました");
+      return;
     }
+
+    // 2. 現在の経験値を取得して +5 更新
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("total_exp")
+      .eq("id", uid)
+      .single();
+
+    const currentExp = profile?.total_exp || 0;
+    await supabase
+      .from("profiles")
+      .update({ total_exp: currentExp + 5 })
+      .eq("id", uid);
+
+    alert(`スタンプGET！経験値+5を獲得しました 🍥`);
+    fetchData(); 
   };
 
-  // フィルタリング処理
+  // --- 経験値減算ロジックを追加した削除関数 ---
+  const handleRemoveStamp = async (shopId: string) => {
+    if (!confirm("スタンプを取り消しますか？（獲得した経験値も減ります）")) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    // 1. スタンプを削除
+    const { error: deleteError } = await supabase
+      .from("stamps")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("shop_id", shopId);
+
+    if (deleteError) {
+      alert("削除に失敗しました");
+      return;
+    }
+
+    // 2. 現在の経験値を取得して -5 更新
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("total_exp")
+      .eq("id", user.id)
+      .single();
+
+    const currentExp = profile?.total_exp || 0;
+    await supabase
+      .from("profiles")
+      .update({ total_exp: Math.max(0, currentExp - 5) }) // 0以下にはならないように
+      .eq("id", user.id);
+
+    fetchData();
+  };
+
   const filteredShops = shops.filter(shop => {
     const matchesArea = activeTab === "すべて" ? true : shop.area === activeTab;
     const isGot = stamps.some(s => String(s.shop_id) === String(shop.id));
@@ -76,13 +121,11 @@ export default function StampsPage() {
 
   return (
     <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans">
-      {/* 上部ナビゲーション */}
       <div className="w-full max-w-md flex items-center mb-6">
         <button onClick={() => router.push("/")} className="text-slate-400 text-sm font-black mr-4">← BACK</button>
         <h1 className="text-xl font-black italic text-orange-600 tracking-tighter">STAMP RALLY</h1>
       </div>
 
-      {/* エリアタブ */}
       <div className="w-full max-w-md flex bg-white p-1.5 rounded-2xl shadow-sm border border-orange-50 mb-4">
         {["すべて", "東京", "神奈川"].map((tab) => (
           <button 
@@ -95,7 +138,6 @@ export default function StampsPage() {
         ))}
       </div>
 
-      {/* 表示切り替えオプション */}
       <div className="w-full max-w-md flex items-center justify-end gap-2 mb-4 px-2">
         <span className="text-[10px] font-black text-slate-400 uppercase">未訪問のみ表示</span>
         <button 
@@ -106,13 +148,12 @@ export default function StampsPage() {
         </button>
       </div>
 
-      {/* ショップリスト */}
       <div className="w-full max-w-md space-y-4 mb-10">
         {filteredShops.map((shop) => {
           const myStamp = stamps.find(s => String(s.shop_id) === String(shop.id));
           const isGot = !!myStamp;
           return (
-            <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex items-center justify-between transition-all active:bg-orange-50/50">
+            <div key={shop.id} className="bg-white p-4 rounded-3xl shadow-sm border border-orange-50 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl ${isGot ? (myStamp?.type === 'checkin' ? "bg-yellow-100 ring-2 ring-yellow-400" : "bg-orange-100") : "bg-slate-50 opacity-40 grayscale"}`}>
                   {myStamp?.type === 'checkin' ? '🏆' : (isGot ? '⭐' : '🍲')}
@@ -120,7 +161,7 @@ export default function StampsPage() {
                 <div>
                   <h4 className={`font-black tracking-tight text-xs ${isGot ? "text-slate-800" : "text-slate-300"}`}>{shop.name}</h4>
                   <div className="flex gap-2">
-                    <button onClick={() => router.push(`/diary/${shop.id}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1">📝 Log</button>
+                    <button onClick={() => router.push(`/diary/new?shop=${shop.name}`)} className="text-[8px] text-orange-600 font-black uppercase mt-1">📝 Log</button>
                     {shop.area && <span className="text-[8px] text-slate-300 font-black uppercase mt-1">📍 {shop.area}</span>}
                   </div>
                 </div>
@@ -134,12 +175,6 @@ export default function StampsPage() {
             </div>
           );
         })}
-
-        {filteredShops.length === 0 && (
-          <div className="text-center py-10">
-            <p className="text-slate-300 font-black italic text-sm uppercase">No Shops Found...</p>
-          </div>
-        )}
       </div>
     </main>
   );
