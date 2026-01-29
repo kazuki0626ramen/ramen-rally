@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 export default function HomePage() {
   const [nickname, setNickname] = useState<string>("Guest User");
   const [userLevel, setUserLevel] = useState<number>(1);
-  const [totalExp, setTotalExp] = useState<number>(0); // 経験値を保持
+  const [totalExp, setTotalExp] = useState<number>(0);
   const [stampsCount, setStampsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -23,16 +23,18 @@ export default function HomePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
     
-    // total_exp を取得するように変更
-    const { data: profile } = await supabase.from("profiles").select("nickname, total_exp").eq("id", user.id).single();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("nickname, total_exp")
+      .eq("id", user.id)
+      .single();
+
     if (profile) {
       setNickname(profile.nickname || "Guest");
       const exp = profile.total_exp || 0;
       setTotalExp(exp);
-      
-      // レベル計算ロジック: 10点ごとに1レベルアップ (例: 0-9exp=Lv1, 10-19exp=Lv2)
-      const calculatedLevel = Math.floor(exp / 10) + 1;
-      setUserLevel(calculatedLevel);
+      // 10点ごとにLvアップ
+      setUserLevel(Math.floor(exp / 10) + 1);
     }
 
     const { data: stampData } = await supabase.from("stamps").select("id").eq("user_id", user.id);
@@ -40,7 +42,7 @@ export default function HomePage() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchData(); }, [router]);
+  useEffect(() => { fetchData(); }, []);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9F5] text-orange-600 font-black italic">Loading Ramen World...</div>;
 
@@ -49,18 +51,16 @@ export default function HomePage() {
 
   return (
     <main className="p-6 flex flex-col items-center bg-[#FFF9F5] min-h-screen font-sans">
-      {/* ヘッダー */}
       <div className="w-full max-w-md flex justify-between items-center mb-6">
         <h1 className="text-xl font-black italic text-orange-600 tracking-tighter">RAMEN RALLY 50</h1>
-        <button onClick={() => { supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase">Logout</button>
+        <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase">Logout</button>
       </div>
 
-      {/* ユーザーカード */}
       <div className="w-full max-w-md bg-white p-6 rounded-[28px] shadow-lg border border-white mb-8">
         <div className="flex items-center">
           <div className="relative mr-4">
             <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center text-3xl border-2 border-orange-100 overflow-hidden">
-               {evolutionStage >= 15 ? "🔥" : evolutionStage >= 10 ? "👨‍🍳" : evolutionStage >= 5 ? "🍜" : "👶"}
+               {userLevel >= 15 ? "🔥" : userLevel >= 10 ? "👨‍🍳" : userLevel >= 5 ? "🍜" : "👶"}
             </div>
             <div className="absolute -bottom-1 -right-1 bg-orange-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white">
               Lv.{userLevel}
@@ -69,7 +69,6 @@ export default function HomePage() {
           <div className="flex-1 text-left">
             <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Rally Member</p>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">{nickname}</h2>
-            {/* 経験値ゲージ的な補足を表示（任意） */}
             <p className="text-[9px] font-bold text-orange-400 uppercase tracking-tighter">Total EXP: {totalExp}</p>
           </div>
           <button onClick={() => router.push("/profile")} className="bg-orange-50 p-2 rounded-full shadow-sm">⚙️</button>
@@ -80,12 +79,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* メインメニュー */}
       <div className="w-full max-w-md grid grid-cols-1 gap-4">
-        <button 
-          onClick={() => router.push("/stamps")}
-          className="w-full bg-gradient-to-br from-orange-500 to-red-600 text-white p-6 rounded-[32px] shadow-xl flex items-center justify-between group active:scale-95 transition-all"
-        >
+        <button onClick={() => router.push("/stamps")} className="w-full bg-gradient-to-br from-orange-500 to-red-600 text-white p-6 rounded-[32px] shadow-xl flex items-center justify-between group active:scale-95 transition-all">
           <div className="text-left">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">Collection</span>
             <h3 className="text-xl font-black italic tracking-wider">STAMP RALLY 🍜</h3>
@@ -93,26 +88,8 @@ export default function HomePage() {
           <span className="text-4xl group-hover:rotate-12 transition-transform">🍥</span>
         </button>
 
-        <div className="grid grid-cols-2 gap-4">
-          <button 
-            onClick={() => router.push("/ranking")}
-            className="bg-white p-5 rounded-[28px] shadow-sm border border-orange-100 flex flex-col items-center gap-2 active:scale-95 transition-all"
-          >
-            <span className="text-2xl">🏆</span>
-            <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Ranking</span>
-          </button>
-          
-          <button 
-            onClick={() => router.push("/timeline")}
-            className="bg-white p-5 rounded-[28px] shadow-sm border border-orange-100 flex flex-col items-center gap-2 active:scale-95 transition-all"
-          >
-            <span className="text-2xl">🌐</span>
-            <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest">Timeline</span>
-          </button>
-        </div>
-
         <button 
-          onClick={() => router.push("/diary/new")}
+          onClick={() => router.push("/diary/default/new")} 
           className="w-full bg-white p-5 rounded-[28px] shadow-sm border-2 border-dashed border-orange-200 flex items-center justify-center gap-3 text-orange-600 active:scale-95 transition-all"
         >
           <span className="text-xl">✍️</span>
