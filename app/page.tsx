@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 export default function HomePage() {
   const [nickname, setNickname] = useState<string>("Guest User");
   const [userLevel, setUserLevel] = useState<number>(1);
+  const [totalExp, setTotalExp] = useState<number>(0); // 経験値を保持
   const [stampsCount, setStampsCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
@@ -22,10 +23,16 @@ export default function HomePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/login"); return; }
     
-    const { data: profile } = await supabase.from("profiles").select("nickname, level").eq("id", user.id).single();
+    // total_exp を取得するように変更
+    const { data: profile } = await supabase.from("profiles").select("nickname, total_exp").eq("id", user.id).single();
     if (profile) {
       setNickname(profile.nickname || "Guest");
-      setUserLevel(profile.level || 1);
+      const exp = profile.total_exp || 0;
+      setTotalExp(exp);
+      
+      // レベル計算ロジック: 10点ごとに1レベルアップ (例: 0-9exp=Lv1, 10-19exp=Lv2)
+      const calculatedLevel = Math.floor(exp / 10) + 1;
+      setUserLevel(calculatedLevel);
     }
 
     const { data: stampData } = await supabase.from("stamps").select("id").eq("user_id", user.id);
@@ -48,7 +55,7 @@ export default function HomePage() {
         <button onClick={() => { supabase.auth.signOut(); router.push("/login"); }} className="text-[10px] font-black text-slate-400 uppercase">Logout</button>
       </div>
 
-      {/* ユーザーカード（現状維持） */}
+      {/* ユーザーカード */}
       <div className="w-full max-w-md bg-white p-6 rounded-[28px] shadow-lg border border-white mb-8">
         <div className="flex items-center">
           <div className="relative mr-4">
@@ -62,6 +69,8 @@ export default function HomePage() {
           <div className="flex-1 text-left">
             <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Rally Member</p>
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">{nickname}</h2>
+            {/* 経験値ゲージ的な補足を表示（任意） */}
+            <p className="text-[9px] font-bold text-orange-400 uppercase tracking-tighter">Total EXP: {totalExp}</p>
           </div>
           <button onClick={() => router.push("/profile")} className="bg-orange-50 p-2 rounded-full shadow-sm">⚙️</button>
         </div>
@@ -71,9 +80,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* メインメニュー：ここが新しいハブ機能です */}
+      {/* メインメニュー */}
       <div className="w-full max-w-md grid grid-cols-1 gap-4">
-        {/* スタンプ帳（一番大きく） */}
         <button 
           onClick={() => router.push("/stamps")}
           className="w-full bg-gradient-to-br from-orange-500 to-red-600 text-white p-6 rounded-[32px] shadow-xl flex items-center justify-between group active:scale-95 transition-all"
