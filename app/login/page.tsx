@@ -16,40 +16,50 @@ export default function LoginPage() {
   } = useAuth();
 
   return (
-    <main className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-[#b94a3a] via-[#8b2f23] to-[#5a1a14]">
+    <main className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-[#c04d3d] via-[#a1392b] to-[#6b1e15]">
       
-      {/* やわらか装飾 */}
-      <div className="absolute top-16 -left-24 w-72 h-72 bg-orange-300 rounded-full blur-3xl opacity-20" />
-      <div className="absolute bottom-16 -right-24 w-80 h-80 bg-yellow-200 rounded-full blur-3xl opacity-20" />
+      {/* 背景の柔らかな光 */}
+      <div className="absolute top-20 -left-20 w-80 h-80 bg-orange-400 rounded-full blur-[100px] opacity-25 animate-pulse" />
+      <div className="absolute bottom-20 -right-20 w-96 h-96 bg-yellow-300 rounded-full blur-[120px] opacity-20" />
 
-      {/* 🍜 */}
-      <div className="relative z-10 mb-[-32px]">
-        <span className="text-[96px] drop-shadow-xl">🍜</span>
+      {/* 🍜 ラーメンセクション（動き付き） */}
+      <div className="relative z-10 mb-[-24px] flex flex-col items-center animate-bounce [animation-duration:3s]">
+        {/* 湯気のエフェクト */}
+        <div className="flex gap-2 mb-[-10px]">
+          <div className="w-1.5 h-8 bg-white/30 rounded-full blur-sm animate-pulse [animation-delay:0.2s]" />
+          <div className="w-1.5 h-12 bg-white/20 rounded-full blur-sm animate-pulse [animation-delay:0.5s]" />
+          <div className="w-1.5 h-10 bg-white/30 rounded-full blur-sm animate-pulse [animation-delay:0.8s]" />
+        </div>
+        <span className="text-[100px] drop-shadow-[0_10px_10px_rgba(0,0,0,0.3)] select-none">
+          🍜
+        </span>
       </div>
 
       {/* ログインカード */}
       <div className="relative z-20 w-full max-w-sm px-4">
-        <div className="bg-white/15 backdrop-blur-lg p-8 rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.25)] border border-white/20">
+        <div className="bg-white/10 backdrop-blur-xl p-8 rounded-[40px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/20">
 
-          {/* タイトル */}
-          <h1 className="text-2xl font-bold text-center text-white mb-1">
-            おかえりなさい
-          </h1>
-          <p className="text-center text-white/70 text-sm mb-8">
-            ログインして続けましょう 🍥
-          </p>
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-black text-white tracking-tight">
+              おかえりなさい！
+            </h1>
+            <div className="h-1 w-12 bg-orange-400 mx-auto my-2 rounded-full" />
+            <p className="text-white/70 text-sm font-medium">
+              今日も美味しい一杯を 🍥
+            </p>
+          </div>
 
           <form onSubmit={handleLogin} className="flex flex-col gap-5">
             
-            {/* Email */}
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60">
+            {/* Email 入力時に✉️が少し傾く演出 */}
+            <div className="group relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl transition-transform group-focus-within:scale-125 group-focus-within:-rotate-12">
                 ✉️
               </span>
               <input
                 type="email"
                 placeholder="メールアドレス"
-                className="w-full bg-white/20 border border-white/30 p-4 pl-12 rounded-xl text-white placeholder-white/60 outline-none focus:ring-2 focus:ring-orange-400 transition-all"
+                className="w-full bg-black/20 border border-white/10 p-4 pl-14 rounded-2xl text-white placeholder-white/40 outline-none focus:ring-2 focus:ring-orange-400 focus:bg-black/30 transition-all shadow-inner"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -57,46 +67,49 @@ export default function LoginPage() {
             </div>
 
             {/* Password */}
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/60">
+            <div className="group relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl transition-transform group-focus-within:scale-125 group-focus-within:rotate-12">
                 🔑
               </span>
               <input
                 type="password"
                 placeholder="パスワード"
-                className="w-full bg-white/20 border border-white/30 p-4 pl-12 rounded-xl text-white placeholder-white/60 outline-none focus:ring-2 focus:ring-orange-400 transition-all"
+                className="w-full bg-black/20 border border-white/10 p-4 pl-14 rounded-2xl text-white placeholder-white/40 outline-none focus:ring-2 focus:ring-orange-400 focus:bg-black/30 transition-all shadow-inner"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
 
-            {/* Button */}
+            {/* 送信ボタン */}
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 bg-gradient-to-r from-orange-400 to-orange-500 text-white p-4 rounded-xl font-bold shadow-lg hover:from-orange-500 hover:to-orange-600 transition-all disabled:opacity-50"
+              className="mt-2 relative group overflow-hidden bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-2xl font-bold shadow-[0_10px_20px_-5px_rgba(249,115,22,0.5)] active:scale-95 transition-all disabled:opacity-50"
             >
-              {loading ? "ログイン中…" : "ログインする"}
+              <span className="relative z-10">
+                {loading ? "麺をゆでています..." : "ログインする"}
+              </span>
+              <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </button>
 
-            {/* Signup */}
-            <div className="flex justify-center mt-2">
-              <button
-                type="button"
-                onClick={() => router.push("/signup")}
-                className="text-white/80 text-xs hover:text-yellow-200 transition-colors"
-              >
-                はじめての方はこちら 🍥
-              </button>
-            </div>
+            {/* 新規登録ボタン */}
+            <button
+              type="button"
+              onClick={() => router.push("/signup")}
+              className="mt-2 text-white/60 text-sm font-medium hover:text-orange-300 transition-colors flex items-center justify-center gap-2"
+            >
+              <span>はじめての方はこちら</span>
+              <span className="animate-bounce-x">🍥</span>
+            </button>
 
           </form>
         </div>
       </div>
 
-      {/* 小さな飾り */}
-      <div className="absolute bottom-6 right-6 text-white/20 text-3xl">✦</div>
+      {/* 画面端の小さな星 */}
+      <div className="absolute top-1/4 right-10 text-white/10 text-4xl animate-spin [animation-duration:8s]">✦</div>
+      <div className="absolute bottom-1/4 left-10 text-white/10 text-2xl animate-reverse-spin">✦</div>
     </main>
   );
 }
