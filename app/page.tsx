@@ -24,95 +24,103 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="p-6 bg-[#FFF9F5] min-h-screen font-sans flex flex-col items-center text-slate-800">
+    <main className="p-6 bg-[#FFFBF0] min-h-screen font-sans flex flex-col items-center text-slate-800 pb-24">
       
-      {/* 1. プロフィールカード */}
-      <div className="w-full max-w-md bg-white p-8 rounded-[40px] shadow-sm border border-orange-50 mb-6 relative overflow-hidden">
-        <div className="absolute -top-2 -right-2 p-4 opacity-10 text-7xl rotate-12">🍜</div>
-        <div className="relative z-10 text-left">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Current Status</p>
-          <div className="flex items-baseline space-x-2 mb-4">
-            <span className="text-4xl font-black italic text-orange-600 tracking-tighter">LV.{profile?.level || 1}</span>
-            <span className="text-slate-300 font-bold text-sm">/ Master</span>
+      {/* ロゴエリア */}
+      <div className="w-full max-w-md flex justify-center py-4 mb-2">
+        <h1 className="text-2xl font-black text-orange-500 tracking-tight flex items-center gap-2">
+          <span className="text-3xl">🍜</span> RAMEN RALLY
+        </h1>
+      </div>
+
+      {/* 1. ユーザープロフィールカード（可愛らしいデザイン） */}
+      <div className="w-full max-w-md bg-white p-8 rounded-[40px] shadow-[0_10px_25px_-5px_rgba(249,115,22,0.1)] border border-orange-100 mb-8 relative overflow-hidden">
+        {/* 背景の薄いデコレーション */}
+        <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-orange-50 rounded-full opacity-50 z-0" />
+        
+        <div className="relative z-10 flex flex-col items-center text-center">
+          {/* アバター枠 */}
+          <div className="w-24 h-24 bg-orange-100 rounded-full flex items-center justify-center text-5xl mb-4 border-4 border-white shadow-sm overflow-hidden">
+             {/* 将来的にはここに stage-X.png を入れる */}
+             { (profile?.level || 1) >= 10 ? "👨‍🍳" : "👶" }
+          </div>
+
+          <div className="mb-6">
+            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Ramen Eater</p>
+            <h2 className="text-3xl font-black text-slate-800 tracking-tighter">
+              Lv.<span className="text-orange-500">{profile?.level || 1}</span> 
+              <span className="text-lg text-slate-400 ml-2">/ Master</span>
+            </h2>
           </div>
           
-          <div className="grid grid-cols-2 gap-4 border-t border-orange-50 pt-4">
+          <div className="w-full grid grid-cols-2 gap-6 bg-orange-50/50 p-5 rounded-[28px]">
             <div>
-              <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Total Exp</p>
-              <p className="text-2xl font-black text-slate-700">{profile?.total_exp || 0}<span className="text-[10px] ml-1 uppercase">pts</span></p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Eaten</p>
+              <p className="text-2xl font-black text-slate-800">{profile?.total_eaten || 0}<span className="text-xs ml-1 font-bold">杯</span></p>
             </div>
-            <div className="text-right">
-              <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Total Eaten</p>
-              <p className="text-2xl font-black text-slate-700">{profile?.total_eaten || 0}<span className="text-[10px] ml-1">杯</span></p>
+            <div className="border-l border-orange-100">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total EXP</p>
+              <p className="text-2xl font-black text-slate-800">{profile?.total_exp || 0}<span className="text-[10px] ml-1 uppercase">pts</span></p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 2. メインアクション：記録する */}
-      <button 
-        onClick={() => router.push('/diary/default/new')}
-        className="w-full max-w-md bg-orange-600 text-white p-6 rounded-[32px] shadow-xl shadow-orange-100 flex items-center justify-between active:scale-95 transition-all mb-8 group"
-      >
-        <div className="flex items-center space-x-4 text-left">
-          <span className="text-3xl group-hover:rotate-12 transition-transform">➕</span>
-          <span className="text-lg font-black tracking-tighter uppercase italic leading-none">Post New Record</span>
-        </div>
-        <span className="bg-orange-500/50 px-3 py-1 rounded-full text-[10px] font-black tracking-widest">+1 EXP</span>
-      </button>
-
-      {/* 3. ナビゲーションメニュー */}
-      <div className="w-full max-w-md space-y-3">
+      {/* 2. ナビゲーションメニュー */}
+      <div className="w-full max-w-md space-y-4">
         
-        {/* スタンプラリー（エリア別：東京・神奈川など） */}
+        {/* スタンプラリー */}
         <button 
           onClick={() => router.push('/stamps')} 
-          className="w-full bg-white border-2 border-orange-100 p-5 rounded-[28px] flex items-center justify-between shadow-sm active:scale-95 transition-all text-left"
+          className="w-full bg-white p-5 rounded-[30px] flex items-center space-x-4 shadow-[0_4px_15px_-3px_rgba(0,0,0,0.05)] border border-slate-50 active:scale-95 transition-all text-left group"
         >
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-xl">🗺️</div>
-            <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Area Mission</div>
-              <div className="text-md font-black italic text-orange-600 tracking-tighter uppercase">Stamp Rally</div>
-            </div>
+          <div className="w-12 h-12 bg-[#FFEDD5] rounded-2xl flex items-center justify-center text-2xl group-hover:rotate-6 transition-transform">🗺️</div>
+          <div className="flex-1">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Area Mission</div>
+            <div className="text-lg font-black text-slate-700 tracking-tight">Stamp Rally</div>
           </div>
-          <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-orange-200 text-xs">→</div>
+          <div className="text-orange-200 font-black">❯</div>
         </button>
 
-        {/* ランキング（順位表示画面） */}
+        {/* ランキング */}
         <button 
           onClick={() => router.push('/ranking')}
-          className="w-full bg-white border-2 border-orange-100 p-5 rounded-[28px] flex items-center justify-between shadow-sm active:scale-95 transition-all text-left"
+          className="w-full bg-white p-5 rounded-[30px] flex items-center space-x-4 shadow-[0_4px_15px_-3px_rgba(0,0,0,0.05)] border border-slate-50 active:scale-95 transition-all text-left group"
         >
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-xl">🏆</div>
-            <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Leaderboard</div>
-              <div className="text-md font-black italic text-orange-600 tracking-tighter uppercase">Ranking</div>
-            </div>
+          <div className="w-12 h-12 bg-[#FEF3C7] rounded-2xl flex items-center justify-center text-2xl group-hover:rotate-6 transition-transform">🏆</div>
+          <div className="flex-1">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Leaderboard</div>
+            <div className="text-lg font-black text-slate-700 tracking-tight">Ranking</div>
           </div>
-          <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-orange-200 text-xs">→</div>
+          <div className="text-orange-200 font-black">❯</div>
         </button>
 
-        {/* タイムライン（修正点：/diary から /timeline へ変更） */}
+        {/* タイムライン */}
         <button 
           onClick={() => router.push('/timeline')}
-          className="w-full bg-white border-2 border-orange-100 p-5 rounded-[28px] flex items-center justify-between shadow-sm active:scale-95 transition-all text-left"
+          className="w-full bg-white p-5 rounded-[30px] flex items-center space-x-4 shadow-[0_4px_15px_-3px_rgba(0,0,0,0.05)] border border-slate-50 active:scale-95 transition-all text-left group"
         >
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-xl">🌏</div>
-            <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Global Feed</div>
-              <div className="text-md font-black italic text-orange-600 tracking-tighter uppercase">Timeline</div>
-            </div>
+          <div className="w-12 h-12 bg-[#F3E8FF] rounded-2xl flex items-center justify-center text-2xl group-hover:rotate-6 transition-transform">🌏</div>
+          <div className="flex-1">
+            <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">Global Feed</div>
+            <div className="text-lg font-black text-slate-700 tracking-tight">Timeline</div>
           </div>
-          <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-orange-200 text-xs">→</div>
+          <div className="text-orange-200 font-black">❯</div>
         </button>
 
       </div>
 
-      <div className="mt-10 opacity-30 text-[8px] font-black tracking-[0.3em] text-slate-400 uppercase">
-        Ramen Rally Integrated UI v1.5
+      {/* 3. 記録する：右下の浮かぶボタン（FAB） */}
+      <button 
+        onClick={() => router.push('/diary/default/new')}
+        className="fixed bottom-8 right-6 w-18 h-18 bg-orange-500 text-white rounded-full shadow-[0_10px_25px_-5px_rgba(249,115,22,0.5)] flex flex-col items-center justify-center active:scale-90 transition-all z-50 border-4 border-white p-4"
+      >
+        <span className="text-2xl font-bold leading-none">+</span>
+        <span className="text-[9px] font-black uppercase tracking-tighter">Post</span>
+      </button>
+
+      <div className="mt-12 opacity-20 text-[8px] font-black tracking-[0.4em] text-slate-400 uppercase">
+        Super Ramen Rally v2.0
       </div>
     </main>
   );
