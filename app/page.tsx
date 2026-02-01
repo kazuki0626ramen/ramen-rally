@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 export default function HomePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
-  const [showLevelUp, setShowLevelUp] = useState(false); // 昇格演出の表示管理
+  const [showLevelUp, setShowLevelUp] = useState(false);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -19,25 +19,19 @@ export default function HomePage() {
           .eq("id", user.id)
           .single();
         
-        // 【演出ロジック】もしレベルが前回より上がっていたら演出を出す
-        // ※デバッグ用：初回ログイン時やレベルが1以上の時に演出を見たい場合はここを調整
+        // 演出ロジック：レベル1より上ならデモとして表示
         if (data && data.level > 1) {
           setShowLevelUp(true);
-          // 3秒後に自動で閉じる
-          setTimeout(() => setShowLevelUp(false), 3000);
         }
-        
         setProfile(data);
       }
     }
     fetchProfile();
   }, []);
 
-  // 【アバター判定】5レベルごとに1〜20のステージを計算
   const stage = Math.min(Math.ceil((profile?.level || 1) / 5), 20);
   const avatarUrl = `/avatars/stage-${stage}.png`;
 
-  // 絵文字バックアップ（画像がない時用）
   const getEmoji = (lv: number) => {
     if (lv >= 90) return "👑";
     if (lv >= 50) return "👨‍🍳";
@@ -46,39 +40,61 @@ export default function HomePage() {
   };
 
   return (
-    <main className="p-6 bg-[#FFFBF0] min-h-screen font-sans flex flex-col items-center text-slate-800 pb-24 relative">
+    <main className="p-6 bg-[#FFFBF0] min-h-screen font-sans flex flex-col items-center text-slate-800 pb-24 relative overflow-hidden">
       
-      {/* --- 将棋ウォーズ風：レベル昇格演出レイヤー --- */}
+      {/* --- 【追加】CoDモバイル風：超ド派手レベルアップ演出 --- */}
       {showLevelUp && (
         <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 animate-in fade-in duration-500"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-pointer"
           onClick={() => setShowLevelUp(false)}
         >
-          <div className="text-center animate-bounce">
-            <p className="text-orange-500 text-xl font-black mb-2 tracking-[0.5em] drop-shadow-lg">LEVEL UP</p>
-            <h2 className="text-7xl font-black text-white italic tracking-tighter drop-shadow-[0_0_15px_rgba(249,115,22,0.8)]">
-              レベル昇格
-            </h2>
-            <div className="mt-4 text-white font-bold bg-orange-600 px-6 py-2 rounded-full inline-block">
-              LV.{profile?.level} REACHED!
+          {/* 衝撃波 */}
+          <div className="absolute w-[600px] h-[600px] bg-orange-600/20 rounded-full animate-ping opacity-30" />
+          
+          <div className="relative flex flex-col items-center">
+            {/* 背後の光の筋 */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-40 scale-150">
+              <div className="w-1 h-[800px] bg-gradient-to-t from-transparent via-orange-400 to-transparent rotate-45 animate-pulse" />
+              <div className="w-1 h-[800px] bg-gradient-to-t from-transparent via-orange-400 to-transparent -rotate-45 animate-pulse" />
             </div>
+
+            {/* メインエンブレム */}
+            <div className="relative w-44 h-44 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full border-8 border-white shadow-[0_0_60px_rgba(249,115,22,1)] flex items-center justify-center mb-10 animate-in zoom-in-150 duration-500 ease-out">
+              <span className="text-7xl drop-shadow-2xl">{getEmoji(profile?.level || 1)}</span>
+              <div className="absolute -bottom-5 bg-white text-orange-600 font-black px-6 py-1 rounded-sm skew-x-[-20deg] border-2 border-orange-600 shadow-2xl text-[10px] tracking-tighter">
+                LEVEL UP!
+              </div>
+            </div>
+
+            {/* 文字情報 */}
+            <div className="text-center">
+              <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-orange-200 italic tracking-tighter mb-4 animate-in slide-in-from-bottom-10 duration-700">
+                レベル昇格
+              </h2>
+              <div className="flex items-center justify-center gap-6 animate-in zoom-in-50 delay-300 duration-500">
+                <span className="text-white/40 text-3xl font-black italic tracking-tighter">LV.{profile?.level ? profile.level - 1 : 0}</span>
+                <span className="text-white text-4xl opacity-50">▶</span>
+                <span className="text-8xl font-black text-orange-500 italic drop-shadow-[0_0_40px_rgba(249,115,22,1)] animate-bounce">
+                  {profile?.level || 1}
+                </span>
+              </div>
+            </div>
+            <p className="mt-20 text-white/50 text-[10px] font-black tracking-[0.5em] animate-pulse">TAP TO CONTINUE</p>
           </div>
         </div>
       )}
 
-      {/* ロゴエリア */}
+      {/* --- メインUI（ここから下は元の機能を完璧に維持） --- */}
       <div className="w-full max-w-md flex justify-center py-4 mb-2">
         <h1 className="text-2xl font-black text-orange-500 tracking-tight flex items-center gap-2">
           <span className="text-3xl">🍜</span> RAMEN RALLY
         </h1>
       </div>
 
-      {/* 1. ユーザープロフィールカード */}
       <div className="w-full max-w-md bg-white p-8 rounded-[40px] shadow-[0_10px_25px_-5px_rgba(249,115,22,0.1)] border border-orange-100 mb-8 relative overflow-hidden">
         <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-orange-50 rounded-full opacity-50 z-0" />
         
         <div className="relative z-10 flex flex-col items-center text-center">
-          {/* アバター枠（画像があれば表示、なければ絵文字） */}
           <div className="w-28 h-28 bg-orange-100 rounded-full flex items-center justify-center text-6xl mb-4 border-4 border-white shadow-md overflow-hidden bg-gradient-to-b from-orange-50 to-orange-100">
              <img 
                src={avatarUrl} 
@@ -112,14 +128,12 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 2. ナビゲーションメニュー */}
       <div className="w-full max-w-md space-y-4">
         <MenuButton icon="🗺️" color="#FFEDD5" label="Area Mission" title="Stamp Rally" onClick={() => router.push('/stamps')} />
         <MenuButton icon="🏆" color="#FEF3C7" label="Leaderboard" title="Ranking" onClick={() => router.push('/ranking')} />
         <MenuButton icon="🌏" color="#F3E8FF" label="Global Feed" title="Timeline" onClick={() => router.push('/timeline')} />
       </div>
 
-      {/* 3. 記録する（FAB） */}
       <button 
         onClick={() => router.push('/diary/default/new')}
         className="fixed bottom-8 right-6 w-20 h-20 bg-orange-500 text-white rounded-full shadow-[0_15px_30px_-5px_rgba(249,115,22,0.4)] flex flex-col items-center justify-center active:scale-90 transition-all z-50 border-4 border-white"
@@ -127,12 +141,10 @@ export default function HomePage() {
         <span className="text-3xl font-bold leading-none">+</span>
         <span className="text-[10px] font-black uppercase tracking-tighter">Log</span>
       </button>
-
     </main>
   );
 }
 
-// 共通ボタンコンポーネント
 function MenuButton({ icon, color, label, title, onClick }: any) {
   return (
     <button 
