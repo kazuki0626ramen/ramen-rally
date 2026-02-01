@@ -1,8 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
+
+// EXP / Level utilities
+function costForNext(level: number) {
+  if (level >= 1 && level <= 5) return 100;
+  if (level >= 6 && level <= 10) return 200;
+  return 500;
+}
+
+function computeLevelFromExp(exp: number) {
+  let level = 1;
+  let remaining = exp;
+  while (true) {
+    const cost = costForNext(level);
+    if (remaining >= cost) {
+      remaining -= cost;
+      level += 1;
+    } else break;
+  }
+  const nextCost = costForNext(level);
+  const percent = Math.floor((remaining / nextCost) * 100);
+  return { level, remaining, nextCost, percent };
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -13,6 +35,7 @@ export default function HomePage() {
   const [profile, setProfile] = useState<any>(null);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [rankIn, setRankIn] = useState(false);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -56,6 +79,35 @@ export default function HomePage() {
         .eq("user_id", user.id);
       if (stampData) setStamps(stampData);
 
+      // 4.5. diaries 件数を取得して profiles.total_eaten と同期
+      const { count: diaryCount } = await supabase
+        .from("diaries")
+        .select("id", { count: 'exact', head: false })
+        .eq("user_id", user.id);
+      const totalEaten = diaryCount ?? 0;
+
+      // 5. EXP 計算（1杯=100EXP）およびレベル算出
+      const computedTotalExp = totalEaten * 100;
+      const computed = computeLevelFromExp(computedTotalExp);
+
+      // プロフィールのズレがあれば DB を更新（自動同期）
+      const updates: any = {};
+      if (!profileData || profileData.total_eaten !== totalEaten) updates.total_eaten = totalEaten;
+      if (!profileData || profileData.total_exp !== computedTotalExp) updates.total_exp = computedTotalExp;
+      if (!profileData || profileData.level !== computed.level) updates.level = computed.level;
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('profiles').update(updates).eq('id', user.id);
+        // 再取得して state を確実に一致させる
+        const { data: refreshed } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (refreshed) {
+          setProfile(refreshed);
+          setNickname(refreshed.nickname || 'Guest User');
+        }
+      } else {
+        // 既に一致している場合は profileData を state に入れておく
+        if (profileData) setProfile(profileData);
+      }
+
       // 5. ランキング内でのTop10判定（バッジ表示用） — ※既存の挙動は変更しない
       async function checkRankIn(uid: string) {
         try {
@@ -95,6 +147,31 @@ export default function HomePage() {
     }
     fetchData();
   }, [router]);
+
+  // レベルアップ演出の追加効果（紙吹雪・揺れ）
+  useEffect(() => {
+    let shakeTimeout: any = null;
+    if (showLevelUp) {
+      // dynamic import で型エラーを回避しつつ紙吹雪を発動
+      (async () => {
+        try {
+          const confettiMod = await import('canvas-confetti');
+          const confetti = (confettiMod as any).default || confettiMod;
+          confetti({ particleCount: 200, spread: 160, origin: { y: 0.4 }, colors: ['#FFA500', '#FFD700', '#FF8C00'] });
+        } catch (e) {
+          // ライブラリが無くてもフォールバックで CSS アニメーションのみ
+        }
+      })();
+
+      // シンプルな画面揺れ（短時間）
+      const el = overlayRef.current;
+      if (el) {
+        el.classList.add('rr-shake');
+        shakeTimeout = setTimeout(() => el.classList.remove('rr-shake'), 700);
+      }
+    }
+    return () => { if (shakeTimeout) clearTimeout(shakeTimeout); };
+  }, [showLevelUp]);
 
   // アバター・絵文字設定
   const stage = Math.min(Math.ceil((profile?.level || 1) / 5), 20);
@@ -137,6 +214,7 @@ export default function HomePage() {
       {/* --- CoDモバイル風：超ド派手レベルアップ演出 --- */}
       {showLevelUp && (
         <div 
+          ref={overlayRef}
           className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm cursor-pointer"
           onClick={() => setShowLevelUp(false)}
         >
@@ -146,9 +224,9 @@ export default function HomePage() {
               <div className="w-1 h-[800px] bg-gradient-to-t from-transparent via-orange-400 to-transparent rotate-45 animate-pulse" />
               <div className="w-1 h-[800px] bg-gradient-to-t from-transparent via-orange-400 to-transparent -rotate-45 animate-pulse" />
             </div>
-            <div className="relative w-44 h-44 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full border-8 border-white shadow-[0_0_60px_rgba(249,115,22,1)] flex items-center justify-center mb-10 animate-in zoom-in-150 duration-500 ease-out">
-              <span className="text-7xl drop-shadow-2xl">{getEmoji(profile?.level || 1)}</span>
-              <div className="absolute -bottom-5 bg-white text-orange-600 font-black px-6 py-1 rounded-sm skew-x-[-20deg] border-2 border-orange-600 shadow-2xl text-[10px] tracking-tighter">
+            <div className="relative w-48 h-48 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full border-8 border-white shadow-[0_0_90px_rgba(249,115,22,1)] flex items-center justify-center mb-6 animate-in zoom-in-150 duration-500 ease-out">
+              <span className="text-8xl drop-shadow-2xl">{getEmoji(profile?.level || 1)}</span>
+              <div className="absolute -bottom-6 bg-white text-orange-600 font-black px-6 py-1 rounded-sm skew-x-[-20deg] border-2 border-orange-600 shadow-2xl text-[12px] tracking-tighter">
                 LEVEL UP!
               </div>
             </div>
@@ -159,8 +237,11 @@ export default function HomePage() {
                 <span className="text-white text-4xl opacity-50">▶</span>
                 <span className="text-8xl font-black text-orange-500 italic drop-shadow-[0_0_40px_rgba(249,115,22,1)] animate-bounce">{profile?.level || 1}</span>
               </div>
+              <div className="mt-6">
+                <h3 className="text-2xl font-black text-yellow-300 drop-shadow-md">{profile ? (profile.level >= 11 ? '麺神' : profile.level >= 6 ? 'ラーメン愛好家' : '麺見習い') : ''}</h3>
+              </div>
             </div>
-            <p className="mt-20 text-white/50 text-[10px] font-black tracking-[0.5em] animate-pulse">TAP TO CONTINUE</p>
+            <p className="mt-12 text-white/50 text-[10px] font-black tracking-[0.5em] animate-pulse">TAP TO CONTINUE</p>
           </div>
         </div>
       )}
@@ -197,11 +278,11 @@ export default function HomePage() {
           <div className="w-full grid grid-cols-2 gap-6 bg-orange-50/50 p-5 rounded-[28px] border border-orange-100/50 mb-4">
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 tracking-tighter">Total Eaten</p>
-              <p className="text-2xl font-black text-slate-800">{profile?.total_eaten || 0}<span className="text-xs ml-1 font-bold">杯</span></p>
+              <p className="text-2xl font-black text-slate-800">{profile?.total_eaten ?? 0}<span className="text-xs ml-1 font-bold">杯</span></p>
             </div>
             <div className="border-l border-orange-200/50">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 tracking-tighter">Total EXP</p>
-              <p className="text-2xl font-black text-slate-800">{profile?.total_exp || 0}<span className="text-[10px] ml-1 uppercase">pts</span></p>
+              <p className="text-2xl font-black text-slate-800">{profile?.total_exp ?? 0}<span className="text-[10px] ml-1 uppercase">pts</span></p>
             </div>
           </div>
 
@@ -209,10 +290,14 @@ export default function HomePage() {
           <div className="w-full px-2">
             <div className="flex justify-between text-[9px] font-black text-slate-400 mb-1 tracking-widest uppercase">
               <span>Next Level</span>
-              <span>{((profile?.total_exp ?? 0) % 100)}%</span>
+              <span>{(() => {
+                const exp = profile?.total_exp ?? 0;
+                const info = computeLevelFromExp(exp);
+                return `${info.percent}%`;
+              })()}</span>
             </div>
             <div className="w-full h-2 bg-orange-100 rounded-full overflow-hidden">
-              <div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${(profile?.total_exp ?? 0) % 100}%` }} />
+              <div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${(() => { const info = computeLevelFromExp(profile?.total_exp ?? 0); return info.percent; })()}%` }} />
             </div>
           </div>
         </div>
