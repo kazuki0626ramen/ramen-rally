@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 
 export default function HomePage() {
   const [nickname, setNickname] = useState<string>("Guest User");
+  const [profile, setProfile] = useState<any | null>(null);
+  const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
   const [shops, setShops] = useState<any[]>([]);
   const [stamps, setStamps] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,18 +33,33 @@ export default function HomePage() {
         return;
       }
 
-      // 1. プロフィール取得
-      const { data: profile } = await supabase.from("profiles").select("nickname").eq("id", user.id).single();
-      if (profile?.nickname) setNickname(profile.nickname);
+      // プロフィール取得（EXP, level, total_eaten など全体を取得）
+      const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+      if (data) {
+        setProfile(data);
+        if (data.nickname) setNickname(data.nickname);
+      }
 
-      // 2. ショップリスト取得
+      // ショップリスト取得
       const { data: shopData } = await supabase.from("shops").select("*").order("created_at", { ascending: true });
       if (shopData) setShops(shopData);
 
-      // 3. スタンプ履歴取得
+      // スタンプ履歴取得
       const { data: stampData } = await supabase.from("stamps").select("*").eq("user_id", user.id);
       if (stampData) setStamps(stampData || []);
-      
+
+      // URLパラメータからlevelupを検知して1回だけ表示
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("levelup") === "true") {
+          setShowLevelUp(true);
+          // URLからパラメータを消して再表示を防ぐ
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      } catch (e) {
+        // サーバーサイドや非ブラウザ環境では無視
+      }
+
       setLoading(false);
     };
     fetchData();
@@ -61,9 +78,38 @@ export default function HomePage() {
 
     if (error) {
       alert("スタンプ取得失敗: " + error.message);
-    } else {
-      const { data: updatedStamps } = await supabase.from("stamps").select("*").eq("user_id", user.id);
-      if (updatedStamps) setStamps(updatedStamps);
+      return;
+    }
+
+    // プロフィールの集計更新: total_eaten, total_exp, level
+    const prevTotal = profile?.total_eaten || 0;
+    const prevExp = profile?.total_exp || 0;
+    const prevLevel = profile?.level || 0;
+
+    const newTotal = prevTotal + 1;
+    const newExp = prevExp + 10; // 1杯あたり10EXP
+    const newLevel = Math.floor(newExp / 100);
+
+    const { error: upsertError } = await supabase.from("profiles").update({
+      total_eaten: newTotal,
+      total_exp: newExp,
+      level: newLevel,
+    }).eq("id", user.id);
+
+    if (upsertError) {
+      console.warn("プロフィール更新失敗:", upsertError.message);
+    }
+
+    // スタンプ一覧とプロフィールを再取得
+    const { data: updatedStamps } = await supabase.from("stamps").select("*").eq("user_id", user.id);
+    if (updatedStamps) setStamps(updatedStamps);
+
+    const { data: refreshedProfile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+    if (refreshedProfile) setProfile(refreshedProfile);
+
+    // レベルアップしたら /?levelup=true へ遷移させる（1回だけ表示）
+    if (newLevel > prevLevel) {
+      router.push("/?levelup=true");
     }
   };
 
@@ -118,7 +164,31 @@ export default function HomePage() {
           <span className={`text-[10px] font-black uppercase tracking-tighter ${rank.color}`}>RANK: {rank.title}</span>
           <span className="text-[10px] font-bold text-slate-400 italic">{stamps.length} Stamps</span>
         </div>
+        {/* 経験値プログレスバー */}
+        <div className="w-full mt-4">
+          <div className="flex justify-between text-[10px] font-black text-slate-400 mb-1 tracking-widest uppercase">
+            <span>Next Level</span>
+            <span>{((profile?.total_exp ?? 0) % 100)}%</span>
+          </div>
+          <div className="w-full h-2 bg-orange-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-orange-500 transition-all duration-1000"
+              style={{ width: `${(profile?.total_exp ?? 0) % 100}%` }}
+            />
+          </div>
+        </div>
       </div>
+
+      {/* レベルアップ演出のオーバーレイ（簡易） */}
+      {showLevelUp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-white p-8 rounded-2xl text-center max-w-sm w-full">
+            <h2 className="text-4xl font-black text-orange-500 mb-4">LEVEL UP!</h2>
+            <p className="text-sm text-slate-600 mb-6">おめでとう！レベルが上がりました。</p>
+            <button onClick={() => setShowLevelUp(false)} className="bg-orange-500 text-white px-6 py-3 rounded-xl font-black">OK</button>
+          </div>
+        </div>
+      )}
 
       {/* お店リスト */}
       <div className="w-full max-w-md space-y-4">
