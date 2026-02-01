@@ -94,9 +94,9 @@ export default function HomePage() {
           <div className="w-7 h-7 rounded-full bg-slate-50 flex items-center justify-center text-orange-200 text-xs">→</div>
         </button>
 
-        {/* タイムライン（旧：ワールドダイアリー） */}
+        {/* タイムライン（修正点：/diary から /timeline へ変更） */}
         <button 
-          onClick={() => router.push('/diary')}
+          onClick={() => router.push('/timeline')}
           className="w-full bg-white border-2 border-orange-100 p-5 rounded-[28px] flex items-center justify-between shadow-sm active:scale-95 transition-all text-left"
         >
           <div className="flex items-center space-x-4">
