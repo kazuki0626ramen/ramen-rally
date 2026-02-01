@@ -12,6 +12,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [showLevelUp, setShowLevelUp] = useState(false);
+  const [rankIn, setRankIn] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -54,6 +55,41 @@ export default function HomePage() {
         .select("*")
         .eq("user_id", user.id);
       if (stampData) setStamps(stampData);
+
+      // 5. ランキング内でのTop10判定（バッジ表示用） — ※既存の挙動は変更しない
+      async function checkRankIn(uid: string) {
+        try {
+          // --- 杯数（diaries の投稿数） ---
+          const { data: diariesAll } = await supabase.from("diaries").select("user_id,created_at");
+          const cupCountMap: Record<string, number> = {};
+          (diariesAll || []).forEach((d: any) => { cupCountMap[d.user_id] = (cupCountMap[d.user_id] || 0) + 1; });
+          const cupRank = Object.entries(cupCountMap).sort((a, b) => (b[1] as number) - (a[1] as number)).map(e => e[0]);
+
+          // --- Lv（profiles の level） ---
+          const { data: profilesAll } = await supabase.from("profiles").select("id,level");
+          const lvRank = (profilesAll || []).sort((a: any, b: any) => (b.level || 0) - (a.level || 0)).map((p: any) => p.id);
+
+          // --- スタンプ（ユニーク shop ごと） ---
+          const { data: stampsAll } = await supabase.from("stamps").select("user_id,shop_id,created_at");
+          const stampMap: Record<string, Set<string>> = {};
+          (stampsAll || []).forEach((s: any) => {
+            stampMap[s.user_id] = stampMap[s.user_id] || new Set();
+            stampMap[s.user_id].add(s.shop_id);
+          });
+          const stampRank = Object.entries(stampMap).map(([uid, set]) => [uid, (set as Set<string>).size]).sort((a, b) => (b[1] as number) - (a[1] as number)).map(e => e[0]);
+
+          const inCup = cupRank.slice(0, 10).includes(uid);
+          const inLv = lvRank.slice(0, 10).includes(uid);
+          const inStamp = stampRank.slice(0, 10).includes(uid);
+
+          return inCup || inLv || inStamp;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      const isRankIn = await checkRankIn(user.id);
+      setRankIn(Boolean(isRankIn));
       
       setLoading(false);
     }
@@ -145,6 +181,12 @@ export default function HomePage() {
                  (e.target as HTMLImageElement).parentElement!.innerHTML = getEmoji(profile?.level || 1);
                }}
              />
+             {rankIn && (
+               <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-300 via-yellow-100 to-white text-orange-600 px-3 py-1 rounded-full text-[10px] font-black shadow-lg flex items-center gap-2 animate-pulse">
+                 <span className="text-sm">✨</span>
+                 <span>RANK IN!</span>
+               </div>
+             )}
           </div>
           <div className="mb-6">
             <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">{nickname}</p>
