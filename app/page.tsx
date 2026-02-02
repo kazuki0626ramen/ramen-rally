@@ -69,13 +69,17 @@ export default function HomePage() {
       if (stampData) setStamps(stampData);
 
       // 4.5. diaries 件数を取得（マスターデータ）
-      const { count: diaryCount } = await supabase
+      const { count: diaryCount, error: countError } = await supabase
         .from("diaries")
-        .select("id", { count: 'exact', head: false })
+        .select("id", { count: 'exact', head: true })
         .eq("user_id", user.id);
-      const totalEaten = diaryCount ?? 0;
-
-      // 5. EXP 計算（1杯=100EXP）およびレベル算出（その場で計算）
+      
+      if (countError) {
+        console.error("[fetchData] Diary count error:", countError);
+      }
+      
+      const totalEaten = typeof diaryCount === 'number' ? diaryCount : 0;
+      console.log(`[fetchData] User: ${user.id}, totalEaten: ${totalEaten}`);
       const computed = computeLevelFromDiaries(totalEaten);
 
       // State に計算結果を即座にセット（DB 更新を待たない）
@@ -99,21 +103,31 @@ export default function HomePage() {
         }
       })();
 
-      // 5. ランキング内でのTop10判定（バッジ表示用） — ※既存の挙動は変更しない
+      // 5. ランキング内でのTop10判定（バッジ表示用）
       async function checkRankIn(uid: string) {
         try {
-          // --- 杯数（diaries の投稿数） ---
-          const { data: diariesAll } = await supabase.from("diaries").select("user_id,created_at");
+          // --- 杯数（diaries の投稿数）***制限を回避するため .limit(10000) を追加 ---
+          const { data: diariesAll } = await supabase
+            .from("diaries")
+            .select("user_id,created_at")
+            .limit(10000);
           const cupCountMap: Record<string, number> = {};
           (diariesAll || []).forEach((d: any) => { cupCountMap[d.user_id] = (cupCountMap[d.user_id] || 0) + 1; });
           const cupRank = Object.entries(cupCountMap).sort((a, b) => (b[1] as number) - (a[1] as number)).map(e => e[0]);
 
-          // --- Lv（profiles の level） ---
-          const { data: profilesAll } = await supabase.from("profiles").select("id,level");
-          const lvRank = (profilesAll || []).sort((a: any, b: any) => (b.level || 0) - (a.level || 0)).map((p: any) => p.id);
+          // --- Lv（計算ベース：diaryCount + 1）---
+          const { count: allDiaryCount } = await supabase.from("diaries").select("user_id", { count: 'exact', head: true });
+          const allUserIds = Object.keys(cupCountMap);
+          const lvRank = allUserIds.map(userId => ({
+            id: userId,
+            level: (cupCountMap[userId] || 0) + 1
+          })).sort((a, b) => b.level - a.level).map(x => x.id);
 
-          // --- スタンプ（ユニーク shop ごと） ---
-          const { data: stampsAll } = await supabase.from("stamps").select("user_id,shop_id,created_at");
+          // --- スタンプ（ユニーク shop ごと）***制限を回避するため .limit(10000) を追加 ---
+          const { data: stampsAll } = await supabase
+            .from("stamps")
+            .select("user_id,shop_id,created_at")
+            .limit(10000);
           const stampMap: Record<string, Set<string>> = {};
           (stampsAll || []).forEach((s: any) => {
             stampMap[s.user_id] = stampMap[s.user_id] || new Set();
