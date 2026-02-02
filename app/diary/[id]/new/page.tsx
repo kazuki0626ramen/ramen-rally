@@ -131,6 +131,11 @@ export default function NewDiaryPage() {
             placeholder="画像URLを貼り付け"
             className="w-full bg-slate-50 border-none rounded-xl px-4 py-2 text-xs text-center"
           />
+          {imageUrl && (
+            <div className="w-full mt-4 aspect-video bg-slate-50 rounded-2xl overflow-hidden border border-orange-100">
+              <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+            </div>
+          )}
         </div>
 
         {/* RATING (星) */}

@@ -112,8 +112,8 @@ export default function TimelinePage() {
               {/* ショップ・評価 */}
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <p className="text-[9px] font-black text-orange-500 uppercase">{diary.master_shops?.area}</p>
-                  <h3 className="text-lg font-black text-slate-800 leading-tight">{diary.master_shops?.name}</h3>
+                  <p className="text-[9px] font-black text-orange-500 uppercase">{diary.master_shops?.area || "FREE LOG"}</p>
+                  <h3 className="text-lg font-black text-slate-800 leading-tight italic">{diary.shop_name || diary.master_shops?.name || "No Shop"}</h3>
                 </div>
                 <div className="flex text-xs bg-slate-50 px-2 py-1 rounded-lg">
                   {[...Array(5)].map((_, i) => (
@@ -125,7 +125,7 @@ export default function TimelinePage() {
               {/* コメント */}
               <div className="flex gap-3 mb-6 bg-slate-50 p-4 rounded-2xl">
                 <span className="text-lg">💬</span>
-                <p className="text-sm text-slate-900 leading-relaxed font-medium italic">{diary.comment || "No comment."}</p>
+                <p className="text-sm text-slate-900 leading-relaxed font-medium italic">{diary.memo || diary.comment || "No comment."}</p>
               </div>
 
               {/* 返信一覧 */}

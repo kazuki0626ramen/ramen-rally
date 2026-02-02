@@ -32,20 +32,10 @@ export default function RankingPage() {
       (profiles || []).forEach((p: any) => { nameMap[p.id] = p; });
 
       if (active === "lv") {
-        // Lv = diaryCount + 1 で計算
-        let q = supabase.from("diaries").select("user_id,created_at");
-        if (monthly) q = q.gte("created_at", startISO);
-        q = q.limit(10000);
-        const { data: diaries } = await q;
-        const cupCountMap: Record<string, number> = {};
-        (diaries || []).forEach((d: any) => { cupCountMap[d.user_id] = (cupCountMap[d.user_id] || 0) + 1; });
-        const arr: RankItem[] = Object.entries(cupCountMap).map(([id, count]) => ({ 
-          id, 
-          name: nameMap[id]?.nickname || "NoName", 
-          value: count + 1  // Level = diaryCount + 1
-        }));
+        const arr = (profiles || []).map((p: any) => ({ id: p.id, name: p.nickname || "NoName", value: p.level || 0 }));
         arr.sort((a, b) => b.value - a.value);
         setList(arr);
+        // my rank
         const { data: user } = await supabase.auth.getUser();
         const uid = (user as any)?.user?.id;
         setMyRank(uid ? arr.findIndex(x => x.id === uid) + 1 || null : null);
@@ -55,9 +45,8 @@ export default function RankingPage() {
 
       if (active === "cup") {
         // diaries: count per user
-        let q = supabase.from("diaries").select("user_id,created_at");
-        if (monthly) q = q.gte("created_at", startISO);
-        q = q.limit(10000);
+        const q = supabase.from("diaries").select("user_id,created_at");
+        if (monthly) q.gte("created_at", startISO);
         const { data: diaries } = await q;
         const map: Record<string, number> = {};
         (diaries || []).forEach((d: any) => { map[d.user_id] = (map[d.user_id] || 0) + 1; });
@@ -72,9 +61,8 @@ export default function RankingPage() {
       }
 
       if (active === "stamp") {
-        let q = supabase.from("stamps").select("user_id,shop_id,created_at");
-        if (monthly) q = q.gte("created_at", startISO);
-        q = q.limit(10000);
+        const q = supabase.from("stamps").select("user_id,shop_id,created_at");
+        if (monthly) q.gte("created_at", startISO);
         const { data: stamps } = await q;
         const map: Record<string, Set<string>> = {};
         (stamps || []).forEach((s: any) => {
