@@ -103,7 +103,7 @@ export default function TimelinePage() {
 
             {/* 写真 */}
             {diary.image_url && (
-              <div className="w-full aspect-square overflow-hidden bg-slate-100">
+              <div className="w-full aspect-video overflow-hidden bg-slate-100">
                 <img src={diary.image_url} alt="Ramen" className="w-full h-full object-cover" />
               </div>
             )}
@@ -111,9 +111,9 @@ export default function TimelinePage() {
             <div className="p-6">
               {/* ショップ・評価 */}
               <div className="flex justify-between items-start mb-4">
-                <div>
-                  <p className="text-[9px] font-black text-orange-500 uppercase">{diary.master_shops?.area || "FREE LOG"}</p>
-                  <h3 className="text-lg font-black text-slate-800 leading-tight italic">{diary.shop_name || diary.master_shops?.name || "No Shop"}</h3>
+                <div className="flex-1">
+                  <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest">{diary.master_shops?.area || "FREE LOG"}</p>
+                  <h3 className="text-xl font-black text-slate-900 leading-tight italic tracking-tight">{diary.shop_name || diary.master_shops?.name || "No Shop"}</h3>
                 </div>
                 <div className="flex text-xs bg-slate-50 px-2 py-1 rounded-lg">
                   {[...Array(5)].map((_, i) => (
