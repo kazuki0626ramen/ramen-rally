@@ -79,34 +79,37 @@ export default function HomePage() {
         .eq("user_id", user.id);
       if (stampData) setStamps(stampData);
 
-      // 4.5. diaries 件数を取得して profiles.total_eaten と同期
+      // 4.5. diaries 件数を取得（マスターデータ）
       const { count: diaryCount } = await supabase
         .from("diaries")
         .select("id", { count: 'exact', head: false })
         .eq("user_id", user.id);
       const totalEaten = diaryCount ?? 0;
 
-      // 5. EXP 計算（1杯=100EXP）およびレベル算出
+      // 5. EXP 計算（1杯=100EXP）およびレベル算出（その場で計算）
       const computedTotalExp = totalEaten * 100;
       const computed = computeLevelFromExp(computedTotalExp);
 
-      // プロフィールのズレがあれば DB を更新（自動同期）
-      const updates: any = {};
-      if (!profileData || profileData.total_eaten !== totalEaten) updates.total_eaten = totalEaten;
-      if (!profileData || profileData.total_exp !== computedTotalExp) updates.total_exp = computedTotalExp;
-      if (!profileData || profileData.level !== computed.level) updates.level = computed.level;
-      if (Object.keys(updates).length > 0) {
-        await supabase.from('profiles').update(updates).eq('id', user.id);
-        // 再取得して state を確実に一致させる
-        const { data: refreshed } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-        if (refreshed) {
-          setProfile(refreshed);
-          setNickname(refreshed.nickname || 'Guest User');
+      // State に計算結果を即座にセット（DB 更新を待たない）
+      const stateProfile = {
+        ...profileData,
+        total_eaten: totalEaten,
+        total_exp: computedTotalExp,
+        level: computed.level
+      };
+      setProfile(stateProfile);
+      setNickname(stateProfile.nickname || 'Guest User');
+
+      // DB への反映は非同期で（画面更新をブロックしない）
+      (async () => {
+        const updates: any = {};
+        if (!profileData || profileData.total_eaten !== totalEaten) updates.total_eaten = totalEaten;
+        if (!profileData || profileData.total_exp !== computedTotalExp) updates.total_exp = computedTotalExp;
+        if (!profileData || profileData.level !== computed.level) updates.level = computed.level;
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('profiles').update(updates).eq('id', user.id).catch(err => console.warn('Profile update failed:', err));
         }
-      } else {
-        // 既に一致している場合は profileData を state に入れておく
-        if (profileData) setProfile(profileData);
-      }
+      })();
 
       // 5. ランキング内でのTop10判定（バッジ表示用） — ※既存の挙動は変更しない
       async function checkRankIn(uid: string) {

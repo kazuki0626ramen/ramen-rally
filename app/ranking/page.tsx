@@ -45,8 +45,9 @@ export default function RankingPage() {
 
       if (active === "cup") {
         // diaries: count per user
-        const q = supabase.from("diaries").select("user_id,created_at");
-        if (monthly) q.gte("created_at", startISO);
+        let q = supabase.from("diaries").select("user_id,created_at");
+        if (monthly) q = q.gte("created_at", startISO);
+        q = q.limit(10000);
         const { data: diaries } = await q;
         const map: Record<string, number> = {};
         (diaries || []).forEach((d: any) => { map[d.user_id] = (map[d.user_id] || 0) + 1; });
@@ -61,8 +62,9 @@ export default function RankingPage() {
       }
 
       if (active === "stamp") {
-        const q = supabase.from("stamps").select("user_id,shop_id,created_at");
-        if (monthly) q.gte("created_at", startISO);
+        let q = supabase.from("stamps").select("user_id,shop_id,created_at");
+        if (monthly) q = q.gte("created_at", startISO);
+        q = q.limit(10000);
         const { data: stamps } = await q;
         const map: Record<string, Set<string>> = {};
         (stamps || []).forEach((s: any) => {
