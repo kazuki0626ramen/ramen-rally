@@ -34,7 +34,7 @@ export default function NewDiaryPage() {
       if (!user) throw new Error("ログインが必要です");
 
       // 1. 日記を保存（レビュー・公開設定を含む）
-      await supabase.from("diaries").insert({
+      const insertPayload = {
         user_id: user.id,
         shop_id: params?.id !== "default" ? params?.id : null,
         shop_name: shopName,
@@ -42,18 +42,62 @@ export default function NewDiaryPage() {
         memo: memo,
         rating: rating,
         is_public: isPublic,
-      });
+      };
+
+      const { data: inserted, error: insertError } = await supabase
+        .from("diaries")
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("Diary insert failed:", {
+          code: insertError?.code,
+          message: insertError?.message,
+          details: insertError?.details,
+        });
+        alert(`投稿に失敗しました: ${insertError.message || 'Unknown error'}`);
+        setLoading(false);
+        return;
+      }
+
+      console.log("Diary inserted:", inserted);
 
       // 2. 経験値を +1 する
-      const { data: profile } = await supabase.from("profiles").select("total_exp").eq("id", user.id).single();
-      const nextExp = (profile?.total_exp ?? 0) + 1;
-      await supabase.from("profiles").update({ total_exp: nextExp }).eq("id", user.id);
+      // --- 挿入が成功したので、最新の diaries 件数を正確に取得してから profiles を更新 ---
+      try {
+        const { count: diaryCount, error: countError } = await supabase
+          .from("diaries")
+          .select("id", { count: 'exact', head: true })
+          .eq("user_id", user.id);
 
-      alert(`記録完了！現在のEXP: ${nextExp}`);
+        if (countError) {
+          console.warn("Failed to fetch diary count after insert:", countError);
+        }
+
+        const totalEaten = typeof diaryCount === 'number' ? diaryCount : 0;
+        const nextExp = totalEaten * 100; // 1杯=100pts の方針
+
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ total_eaten: totalEaten, total_exp: nextExp })
+          .eq("id", user.id);
+
+        if (updateError) {
+          console.error("Failed to update profile after diary insert:", updateError);
+          alert(`プロフィール更新に失敗しました: ${updateError.message || 'Unknown error'}`);
+        }
+      } catch (e) {
+        console.error("Error while syncing profile after insert:", e);
+      }
+
+      alert("記録完了！データを保存しました。");
+      // ルートに戻してキャッシュを明示的に無効化
       router.push("/");
-      router.refresh();
+      try { router.refresh(); } catch (e) { /* noop */ }
     } catch (error: any) {
-      alert(error.message);
+      console.error("Unexpected error in handleSubmit:", error);
+      alert(error?.message || "投稿中にエラーが発生しました");
     } finally {
       setLoading(false);
     }

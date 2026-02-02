@@ -321,7 +321,7 @@ export default function HomePage() {
         <MenuButton icon="🌏" color="#F3E8FF" label="Global Feed" title="Timeline" onClick={() => router.push('/timeline')} />
       </div>
 
-      <button onClick={() => router.push('/diary/default/new')} className="fixed bottom-8 right-6 w-20 h-20 bg-orange-500 text-white rounded-full shadow-xl flex flex-col items-center justify-center active:scale-90 transition-all z-50 border-4 border-white">
+      <button onClick={() => router.push('/diary/new')} className="fixed bottom-8 right-6 w-20 h-20 bg-orange-500 text-white rounded-full shadow-xl flex flex-col items-center justify-center active:scale-90 transition-all z-50 border-4 border-white">
         <span className="text-3xl font-bold">+</span>
         <span className="text-[10px] font-black uppercase tracking-tighter">Log</span>
       </button>
