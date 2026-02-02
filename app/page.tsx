@@ -10,8 +10,8 @@ import { useRouter } from "next/navigation";
 function computeLevelFromDiaries(totalEaten: number) {
   const level = totalEaten + 1;
   const totalExp = totalEaten * 100;
-  const nextLevelExp = (totalEaten + 1) * 100;
-  const percent = 100; // 常に次のレベルまで100%（1杯で上がる）
+  // 常に次の1杯で上がるため、進捗計算をシンプルに維持
+  const percent = 100; 
   return { level, totalExp, percent };
 }
 
@@ -41,91 +41,83 @@ export default function HomePage() {
         .eq("id", user.id)
         .single();
 
-      if (profileData) {
-        setProfile(profileData);
-        setNickname(profileData.nickname || "Guest User");
-
-        // 2. レベルアップ演出の判定（URLパラメータをチェック）
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('levelup') === 'true') {
-          setShowLevelUp(true);
-          // 演出を出したらURLを綺麗にする（リロード時の再発防止）
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-      }
-
-      // 3. ショップリスト取得
+      // 2. ショップリスト取得
       const { data: shopData } = await supabase
         .from("shops")
         .select("*")
         .order("created_at", { ascending: true });
       if (shopData) setShops(shopData);
 
-      // 4. スタンプ履歴取得
+      // 3. スタンプ履歴取得
       const { data: stampData } = await supabase
         .from("stamps")
         .select("*")
         .eq("user_id", user.id);
       if (stampData) setStamps(stampData);
 
-      // 4.5. diaries 件数を取得（マスターデータ）
+      // 4. diaries 件数を取得（これが杯数とレベルのマスターデータ）
       const { count: diaryCount } = await supabase
         .from("diaries")
         .select("id", { count: 'exact', head: false })
         .eq("user_id", user.id);
       const totalEaten = diaryCount ?? 0;
 
-      // 5. EXP 計算（1杯=100EXP）およびレベル算出（その場で計算）
+      // 5. レベル算出（1杯=1レベルアップの独自計算）
       const computed = computeLevelFromDiaries(totalEaten);
 
-      // State に計算結果を即座にセット（DB 更新を待たない）
+      // State に計算結果を即座にセット（画面表示を最優先）
       const stateProfile = {
-        ...profileData,
+        ...(profileData || {}),
         total_eaten: totalEaten,
         total_exp: computed.totalExp,
         level: computed.level
       };
       setProfile(stateProfile);
-      setNickname(stateProfile.nickname || 'Guest User');
+      if (profileData) setNickname(profileData.nickname || "Guest User");
 
-      // DB への反映は非同期で（画面更新をブロックしない）
+      // 6. レベルアップ演出の判定
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('levelup') === 'true') {
+        setShowLevelUp(true);
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      // 7. DB への反映（エラー修正：.catchを排除してtry-catchに変更）
       (async () => {
-        const updates: any = {};
-        if (!profileData || profileData.total_eaten !== totalEaten) updates.total_eaten = totalEaten;
-        if (!profileData || profileData.total_exp !== computed.totalExp) updates.total_exp = computed.totalExp;
-        if (!profileData || profileData.level !== computed.level) updates.level = computed.level;
-        if (Object.keys(updates).length > 0) {
-          await supabase.from('profiles').update(updates).eq('id', user.id).catch(err => console.warn('Profile update failed:', err));
+        try {
+          const updates: any = {};
+          if (!profileData || profileData.total_eaten !== totalEaten) updates.total_eaten = totalEaten;
+          if (!profileData || profileData.total_exp !== computed.totalExp) updates.total_exp = computed.totalExp;
+          if (!profileData || profileData.level !== computed.level) updates.level = computed.level;
+          
+          if (Object.keys(updates).length > 0) {
+            await supabase.from('profiles').update(updates).eq('id', user.id);
+          }
+        } catch (err) {
+          console.warn('Profile sync failed:', err);
         }
       })();
 
-      // 5. ランキング内でのTop10判定（バッジ表示用） — ※既存の挙動は変更しない
+      // 8. ランキング内でのTop10判定
       async function checkRankIn(uid: string) {
         try {
-          // --- 杯数（diaries の投稿数） ---
-          const { data: diariesAll } = await supabase.from("diaries").select("user_id,created_at");
+          const { data: diariesAll } = await supabase.from("diaries").select("user_id");
           const cupCountMap: Record<string, number> = {};
           (diariesAll || []).forEach((d: any) => { cupCountMap[d.user_id] = (cupCountMap[d.user_id] || 0) + 1; });
-          const cupRank = Object.entries(cupCountMap).sort((a, b) => (b[1] as number) - (a[1] as number)).map(e => e[0]);
+          const cupRank = Object.entries(cupCountMap).sort((a, b) => b[1] - a[1]).map(e => e[0]);
 
-          // --- Lv（profiles の level） ---
           const { data: profilesAll } = await supabase.from("profiles").select("id,level");
           const lvRank = (profilesAll || []).sort((a: any, b: any) => (b.level || 0) - (a.level || 0)).map((p: any) => p.id);
 
-          // --- スタンプ（ユニーク shop ごと） ---
-          const { data: stampsAll } = await supabase.from("stamps").select("user_id,shop_id,created_at");
+          const { data: stampsAll } = await supabase.from("stamps").select("user_id,shop_id");
           const stampMap: Record<string, Set<string>> = {};
           (stampsAll || []).forEach((s: any) => {
             stampMap[s.user_id] = stampMap[s.user_id] || new Set();
             stampMap[s.user_id].add(s.shop_id);
           });
-          const stampRank = Object.entries(stampMap).map(([uid, set]) => [uid, (set as Set<string>).size]).sort((a, b) => (b[1] as number) - (a[1] as number)).map(e => e[0]);
+          const stampRank = Object.entries(stampMap).map(([uid, set]) => [uid, set.size]).sort((a: any, b: any) => b[1] - a[1]).map(e => e[0]);
 
-          const inCup = cupRank.slice(0, 10).includes(uid);
-          const inLv = lvRank.slice(0, 10).includes(uid);
-          const inStamp = stampRank.slice(0, 10).includes(uid);
-
-          return inCup || inLv || inStamp;
+          return cupRank.slice(0, 10).includes(uid) || lvRank.slice(0, 10).includes(uid) || stampRank.slice(0, 10).includes(uid);
         } catch (e) {
           return false;
         }
@@ -133,7 +125,6 @@ export default function HomePage() {
 
       const isRankIn = await checkRankIn(user.id);
       setRankIn(Boolean(isRankIn));
-      
       setLoading(false);
     }
     fetchData();
@@ -143,18 +134,16 @@ export default function HomePage() {
   useEffect(() => {
     let shakeTimeout: any = null;
     if (showLevelUp) {
-      // dynamic import で型エラーを回避しつつ紙吹雪を発動
       (async () => {
         try {
           const confettiMod = await import('canvas-confetti');
           const confetti = (confettiMod as any).default || confettiMod;
           confetti({ particleCount: 200, spread: 160, origin: { y: 0.4 }, colors: ['#FFA500', '#FFD700', '#FF8C00'] });
         } catch (e) {
-          // ライブラリが無くてもフォールバックで CSS アニメーションのみ
+          console.log("Confetti skip");
         }
       })();
 
-      // シンプルな画面揺れ（短時間）
       const el = overlayRef.current;
       if (el) {
         el.classList.add('rr-shake');
@@ -164,7 +153,6 @@ export default function HomePage() {
     return () => { if (shakeTimeout) clearTimeout(shakeTimeout); };
   }, [showLevelUp]);
 
-  // アバター・絵文字設定
   const stage = Math.min(Math.ceil((profile?.level || 1) / 5), 20);
   const avatarUrl = `/avatars/stage-${stage}.png`;
   const getEmoji = (lv: number) => {
@@ -174,35 +162,12 @@ export default function HomePage() {
     return "👶";
   };
 
-  // スタンプ処理（handleAddStamp, handleRemoveStamp は既存通りでOK）
-  const handleAddStamp = async (shopId: string, shopName: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { error } = await supabase.from("stamps").insert({
-      user_id: user.id, shop_id: shopId, shop_name: shopName,
-    });
-    if (error) alert("失敗: " + error.message);
-    else {
-      const { data } = await supabase.from("stamps").select("*").eq("user_id", user.id);
-      if (data) setStamps(data);
-    }
-  };
-
-  const handleRemoveStamp = async (shopId: string) => {
-    if (!confirm("取り消しますか？")) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { error } = await supabase.from("stamps").delete().eq("user_id", user.id).eq("shop_id", shopId);
-    if (error) alert("失敗: " + error.message);
-    else setStamps(stamps.filter(s => s.shop_id !== shopId));
-  };
-
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFFBF0] text-orange-600 font-black italic">LOADING RALLY...</div>;
 
   return (
     <main className="p-6 bg-[#FFFBF0] min-h-screen font-sans flex flex-col items-center text-slate-800 pb-24 relative overflow-hidden">
       
-      {/* --- CoDモバイル風：超ド派手レベルアップ演出 --- */}
+      {/* レベルアップ演出 */}
       {showLevelUp && (
         <div 
           ref={overlayRef}
@@ -211,25 +176,18 @@ export default function HomePage() {
         >
           <div className="absolute w-[600px] h-[600px] bg-orange-600/20 rounded-full animate-ping opacity-30" />
           <div className="relative flex flex-col items-center">
-            <div className="absolute inset-0 flex items-center justify-center opacity-40 scale-150">
-              <div className="w-1 h-[800px] bg-gradient-to-t from-transparent via-orange-400 to-transparent rotate-45 animate-pulse" />
-              <div className="w-1 h-[800px] bg-gradient-to-t from-transparent via-orange-400 to-transparent -rotate-45 animate-pulse" />
-            </div>
-            <div className="relative w-48 h-48 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full border-8 border-white shadow-[0_0_90px_rgba(249,115,22,1)] flex items-center justify-center mb-6 animate-in zoom-in-150 duration-500 ease-out">
+            <div className="relative w-48 h-48 bg-gradient-to-b from-orange-400 to-orange-600 rounded-full border-8 border-white shadow-[0_0_90px_rgba(249,115,22,1)] flex items-center justify-center mb-6 animate-in zoom-in-150 duration-500">
               <span className="text-8xl drop-shadow-2xl">{getEmoji(profile?.level || 1)}</span>
-              <div className="absolute -bottom-6 bg-white text-orange-600 font-black px-6 py-1 rounded-sm skew-x-[-20deg] border-2 border-orange-600 shadow-2xl text-[12px] tracking-tighter">
+              <div className="absolute -bottom-6 bg-white text-orange-600 font-black px-6 py-1 rounded-sm skew-x-[-20deg] border-2 border-orange-600 shadow-2xl text-[12px]">
                 LEVEL UP!
               </div>
             </div>
             <div className="text-center">
-              <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-orange-200 italic tracking-tighter mb-4 animate-in slide-in-from-bottom-10 duration-700">レベル昇格</h2>
-              <div className="flex items-center justify-center gap-6 animate-in zoom-in-50 delay-300 duration-500">
+              <h2 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-orange-200 italic mb-4 animate-in slide-in-from-bottom-10">レベル昇格</h2>
+              <div className="flex items-center justify-center gap-6">
                 <span className="text-white/40 text-3xl font-black italic">LV.{profile?.level ? profile.level - 1 : 0}</span>
                 <span className="text-white text-4xl opacity-50">▶</span>
                 <span className="text-8xl font-black text-orange-500 italic drop-shadow-[0_0_40px_rgba(249,115,22,1)] animate-bounce">{profile?.level || 1}</span>
-              </div>
-              <div className="mt-6">
-                <h3 className="text-2xl font-black text-yellow-300 drop-shadow-md">{profile ? (profile.level >= 11 ? '麺神' : profile.level >= 6 ? 'ラーメン愛好家' : '麺見習い') : ''}</h3>
               </div>
             </div>
             <p className="mt-12 text-white/50 text-[10px] font-black tracking-[0.5em] animate-pulse">TAP TO CONTINUE</p>
@@ -237,73 +195,56 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* --- メインUI --- */}
       <div className="w-full max-w-md flex justify-center py-4 mb-2">
         <h1 className="text-2xl font-black text-orange-500 tracking-tight flex items-center gap-2">
           <span className="text-3xl">🍜</span> RAMEN RALLY
         </h1>
       </div>
 
-      <div className="w-full max-w-md bg-white p-8 rounded-[40px] shadow-[0_10px_25px_-5px_rgba(249,115,22,0.1)] border border-orange-100 mb-8 relative overflow-hidden">
-        <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-orange-50 rounded-full opacity-50 z-0" />
+      <div className="w-full max-w-md bg-white p-8 rounded-[40px] shadow-[0_10px_25px_-5px_rgba(249,115,22,0.1)] border border-orange-100 mb-8 relative">
         <div className="relative z-10 flex flex-col items-center text-center">
-          <div className="w-28 h-28 bg-orange-100 rounded-full flex items-center justify-center text-6xl mb-4 border-4 border-white shadow-md overflow-hidden bg-gradient-to-b from-orange-50 to-orange-100">
+          <div className="w-28 h-28 bg-orange-100 rounded-full flex items-center justify-center text-6xl mb-4 border-4 border-white shadow-md overflow-hidden relative">
              <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" onError={(e) => {
                  (e.target as HTMLImageElement).style.display = 'none';
                  (e.target as HTMLImageElement).parentElement!.innerHTML = getEmoji(profile?.level || 1);
                }}
              />
              {rankIn && (
-               <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-300 via-yellow-100 to-white text-orange-600 px-3 py-1 rounded-full text-[10px] font-black shadow-lg flex items-center gap-2 animate-pulse">
-                 <span className="text-sm">✨</span>
-                 <span>RANK IN!</span>
-               </div>
+               <div className="absolute -top-1 -right-1 bg-gradient-to-r from-yellow-300 to-yellow-500 text-white px-2 py-0.5 rounded-full text-[8px] font-black shadow-lg animate-pulse">RANK IN</div>
              )}
           </div>
           <div className="mb-6">
-            <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">{nickname}</p>
+            <p className="text-[10px] font-black text-orange-400 uppercase mb-1">{nickname}</p>
             <h2 className="text-4xl font-black text-slate-800 tracking-tighter">
               Lv.<span className="text-orange-500">{profile?.level || 1}</span> 
             </h2>
           </div>
           <div className="w-full grid grid-cols-2 gap-6 bg-orange-50/50 p-5 rounded-[28px] border border-orange-100/50 mb-4">
             <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 tracking-tighter">Total Eaten</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Total Eaten</p>
               <p className="text-2xl font-black text-slate-800">{profile?.total_eaten ?? 0}<span className="text-xs ml-1 font-bold">杯</span></p>
             </div>
             <div className="border-l border-orange-200/50">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 tracking-tighter">Total EXP</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase mb-1">Total EXP</p>
               <p className="text-2xl font-black text-slate-800">{profile?.total_exp ?? 0}<span className="text-[10px] ml-1 uppercase">pts</span></p>
             </div>
           </div>
 
-          {/* 経験値プログレスバー */}
           <div className="w-full px-2">
-            <div className="flex justify-between text-[9px] font-black text-slate-400 mb-1 tracking-widest uppercase">
+            <div className="flex justify-between text-[9px] font-black text-slate-400 mb-1 uppercase tracking-widest">
               <span>Next Level</span>
-              <span>{(() => {
-                const totalEaten = profile?.total_eaten ?? 0;
-                const nextEXP = (totalEaten + 1) * 100;
-                const currentEXP = totalEaten * 100;
-                const progress = Math.floor(((nextEXP - currentEXP) / 100) * 100);
-                return `${progress}%`;
-              })()}</span>
+              <span>100%</span>
             </div>
             <div className="w-full h-2 bg-orange-100 rounded-full overflow-hidden">
-              <div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${(() => {
-                const totalEaten = profile?.total_eaten ?? 0;
-                const nextEXP = (totalEaten + 1) * 100;
-                const currentEXP = totalEaten * 100;
-                return Math.floor(((nextEXP - currentEXP) / 100) * 100);
-              })()}%` }} />
+              <div className="h-full bg-orange-500 w-full" />
             </div>
           </div>
         </div>
       </div>
 
       <div className="w-full max-w-md space-y-4">
-        <MenuButton icon="🗺️" color="#FFEDD5" label="Area Mission" title="Stamp Rally" onClick={() => router.push('/stamps')} />
         <MenuButton icon="🏆" color="#FEF3C7" label="Leaderboard" title="Ranking" onClick={() => router.push('/ranking')} />
+        <MenuButton icon="🗺️" color="#FFEDD5" label="Area Mission" title="Stamp Rally" onClick={() => router.push('/stamps')} />
         <MenuButton icon="🌏" color="#F3E8FF" label="Global Feed" title="Timeline" onClick={() => router.push('/timeline')} />
       </div>
 
