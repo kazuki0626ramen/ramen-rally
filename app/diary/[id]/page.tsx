@@ -43,13 +43,13 @@ export default function DiaryPage({ params }: { params: Promise<{ id: string }> 
     const file = e.target.files[0];
     const fileName = `${Math.random()}.${file.name.split('.').pop()}`;
     setSaving(true);
-    const { error: uploadError } = await supabase.storage.from("diaries").upload(fileName, file);
+    const { error: uploadError } = await supabase.storage.from("diary-photos").upload(fileName, file);
     if (uploadError) {
       alert("アップロード失敗");
       setSaving(false);
       return;
     }
-    const { data } = supabase.storage.from("diaries").getPublicUrl(fileName);
+    const { data } = supabase.storage.from("diary-photos").getPublicUrl(fileName);
     setImageUrl(data.publicUrl);
     setSaving(false);
   };

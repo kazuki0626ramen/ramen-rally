@@ -125,9 +125,9 @@ export default function NewDiaryPage() {
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // Supabase Storageへアップロード (バケット名 'diaries' を想定)
+      // Supabase Storageへアップロード (バケット名 'diary-photos')
       const { error: uploadError } = await supabase.storage
-        .from('diaries')
+        .from('diary-photos')
         .upload(filePath, file);
 
       if (uploadError) {
@@ -136,7 +136,7 @@ export default function NewDiaryPage() {
       }
 
       // 公開URLを取得してStateにセット
-      const { data: { publicUrl } } = supabase.storage.from('diaries').getPublicUrl(filePath);
+      const { data: { publicUrl } } = supabase.storage.from('diary-photos').getPublicUrl(filePath);
       setImageUrl(publicUrl);
     } catch (error: any) {
       alert(`画像のアップロードに失敗しました: ${error.message}`);
