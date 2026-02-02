@@ -5,25 +5,14 @@ import { supabase } from "../lib/supabase";
 import { useRouter } from "next/navigation";
 
 // EXP / Level utilities
-function costForNext(level: number) {
-  if (level >= 1 && level <= 5) return 100;
-  if (level >= 6 && level <= 10) return 200;
-  return 500;
-}
-
-function computeLevelFromExp(exp: number) {
-  let level = 1;
-  let remaining = exp;
-  while (true) {
-    const cost = costForNext(level);
-    if (remaining >= cost) {
-      remaining -= cost;
-      level += 1;
-    } else break;
-  }
-  const nextCost = costForNext(level);
-  const percent = Math.floor((remaining / nextCost) * 100);
-  return { level, remaining, nextCost, percent };
+// Level = diaryCount + 1（1杯ごとに1レベルアップ）
+// EXP = diaryCount * 100（1杯=100pts）
+function computeLevelFromDiaries(totalEaten: number) {
+  const level = totalEaten + 1;
+  const totalExp = totalEaten * 100;
+  const nextLevelExp = (totalEaten + 1) * 100;
+  const percent = 100; // 常に次のレベルまで100%（1杯で上がる）
+  return { level, totalExp, percent };
 }
 
 export default function HomePage() {
@@ -87,14 +76,13 @@ export default function HomePage() {
       const totalEaten = diaryCount ?? 0;
 
       // 5. EXP 計算（1杯=100EXP）およびレベル算出（その場で計算）
-      const computedTotalExp = totalEaten * 100;
-      const computed = computeLevelFromExp(computedTotalExp);
+      const computed = computeLevelFromDiaries(totalEaten);
 
       // State に計算結果を即座にセット（DB 更新を待たない）
       const stateProfile = {
         ...profileData,
         total_eaten: totalEaten,
-        total_exp: computedTotalExp,
+        total_exp: computed.totalExp,
         level: computed.level
       };
       setProfile(stateProfile);
@@ -104,7 +92,7 @@ export default function HomePage() {
       (async () => {
         const updates: any = {};
         if (!profileData || profileData.total_eaten !== totalEaten) updates.total_eaten = totalEaten;
-        if (!profileData || profileData.total_exp !== computedTotalExp) updates.total_exp = computedTotalExp;
+        if (!profileData || profileData.total_exp !== computed.totalExp) updates.total_exp = computed.totalExp;
         if (!profileData || profileData.level !== computed.level) updates.level = computed.level;
         if (Object.keys(updates).length > 0) {
           await supabase.from('profiles').update(updates).eq('id', user.id).catch(err => console.warn('Profile update failed:', err));
@@ -294,13 +282,20 @@ export default function HomePage() {
             <div className="flex justify-between text-[9px] font-black text-slate-400 mb-1 tracking-widest uppercase">
               <span>Next Level</span>
               <span>{(() => {
-                const exp = profile?.total_exp ?? 0;
-                const info = computeLevelFromExp(exp);
-                return `${info.percent}%`;
+                const totalEaten = profile?.total_eaten ?? 0;
+                const nextEXP = (totalEaten + 1) * 100;
+                const currentEXP = totalEaten * 100;
+                const progress = Math.floor(((nextEXP - currentEXP) / 100) * 100);
+                return `${progress}%`;
               })()}</span>
             </div>
             <div className="w-full h-2 bg-orange-100 rounded-full overflow-hidden">
-              <div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${(() => { const info = computeLevelFromExp(profile?.total_exp ?? 0); return info.percent; })()}%` }} />
+              <div className="h-full bg-orange-500 transition-all duration-1000" style={{ width: `${(() => {
+                const totalEaten = profile?.total_eaten ?? 0;
+                const nextEXP = (totalEaten + 1) * 100;
+                const currentEXP = totalEaten * 100;
+                return Math.floor(((nextEXP - currentEXP) / 100) * 100);
+              })()}%` }} />
             </div>
           </div>
         </div>
