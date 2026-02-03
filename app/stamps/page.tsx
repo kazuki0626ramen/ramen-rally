@@ -38,14 +38,14 @@ export default function StampsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const isNow = confirm(`今「${shop.name}」にいますか？`);
-    let type = 'memory';
-    if (isNow) {
-      navigator.geolocation.getCurrentPosition(async (pos) => {
-        const dist = getDistance(pos.coords.latitude, pos.coords.longitude, shop.latitude, shop.longitude);
-        type = dist <= 200 ? 'checkin' : 'memory';
-        await executeInsert(user.id, shop, type);
-      }, () => executeInsert(user.id, shop, 'memory'));
-    } else { await executeInsert(user.id, shop, 'memory'); }
+    // ユーザーがキャンセルした場合は処理を中断（DB更新を行わない）
+    if (!isNow) return;
+
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const dist = getDistance(pos.coords.latitude, pos.coords.longitude, shop.latitude, shop.longitude);
+      const type = dist <= 200 ? 'checkin' : 'memory';
+      await executeInsert(user.id, shop, type);
+    }, () => executeInsert(user.id, shop, 'memory'));
   };
 
   // --- 経験値加算：エラーログを詳細に出すように修正 ---

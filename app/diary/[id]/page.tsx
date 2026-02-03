@@ -81,18 +81,16 @@ export default function DiaryPage({ params }: { params: Promise<{ id: string }> 
       return;
     }
 
-    // 2. 累計杯数とレベルの更新ロジック
+    // 2. 累計杯数とレベルの更新ロジック（統一: レベル = 総杯数 + 1）
     const { data: profile } = await supabase.from("profiles").select("total_eaten").eq("id", user.id).single();
     const newTotal = (profile?.total_eaten || 0) + 1;
-    
-    // レベル計算曲線（Lv.100に向けて加速を落とす）
-    // 計算式: 1 + floor(sqrt(累計数 * 10)) -> 約100杯でLv.32, 約1000杯でLv.100
-    // 序盤は1〜2杯で上がり、後半は15杯以上必要になる調整
-    const newLevel = Math.min(Math.floor(Math.sqrt(newTotal * 10)) + 1, 100);
+    const newLevel = newTotal + 1; // 統一された式
+    const newExp = newTotal * 100; // 1杯 = 100pts の方針
 
     await supabase.from("profiles").update({ 
-      total_eaten: newTotal, 
-      level: newLevel 
+      total_eaten: newTotal,
+      total_exp: newExp,
+      level: newLevel,
     }).eq("id", user.id);
 
     alert(`投稿完了！現在のレベル: ${newLevel}`);

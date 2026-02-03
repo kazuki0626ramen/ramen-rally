@@ -15,7 +15,6 @@ export default function NewDiaryPage() {
   const [isPublic, setIsPublic] = useState(true); // 画像12枚目の「PUBLIC」選択状態に合わせる
   const [imageUrl, setImageUrl] = useState("");
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const shop = searchParams.get("shop");
@@ -78,21 +77,25 @@ export default function NewDiaryPage() {
 
         const totalEaten = typeof diaryCount === 'number' ? diaryCount : 0;
         const nextExp = totalEaten * 100; // 1杯=100pts の方針
+        // app/page.tsx と同じ計算式: レベル = 杯数 + 1
+        const newLevel = totalEaten + 1;
 
         const { error: updateError } = await supabase
           .from("profiles")
-          .update({ total_eaten: totalEaten, total_exp: nextExp })
+          .update({ total_eaten: totalEaten, total_exp: nextExp, level: newLevel })
           .eq("id", user.id);
 
         if (updateError) {
           console.error("Failed to update profile after diary insert:", updateError);
           alert(`プロフィール更新に失敗しました: ${updateError.message || 'Unknown error'}`);
         }
+        
+        alert(`記録完了！データを保存しました。\n現在のレベル: ${newLevel}`);
       } catch (e) {
         console.error("Error while syncing profile after insert:", e);
+        alert("記録完了！データを保存しました。");
       }
 
-      alert("記録完了！データを保存しました。");
       // ルートに戻してキャッシュを明示的に無効化
       router.push("/");
       try { router.refresh(); } catch (e) { /* noop */ }
@@ -101,47 +104,6 @@ export default function NewDiaryPage() {
       alert(error?.message || "投稿中にエラーが発生しました");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // 画像アップロード処理
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    try {
-      if (!e.target.files || e.target.files.length === 0) {
-        return;
-      }
-      const file = e.target.files[0];
-
-      // バリデーション: ファイルサイズ (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert("画像サイズは5MB以下にしてください🙇‍♂️");
-        return;
-      }
-
-      setUploading(true);
-
-      // ファイル名の生成（衝突回避のためランダム文字列付与）
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      // Supabase Storageへアップロード (バケット名 'diary-photos')
-      const { error: uploadError } = await supabase.storage
-        .from('diary-photos')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        console.error("Storage Upload Error:", uploadError);
-        throw uploadError;
-      }
-
-      // 公開URLを取得してStateにセット
-      const { data: { publicUrl } } = supabase.storage.from('diary-photos').getPublicUrl(filePath);
-      setImageUrl(publicUrl);
-    } catch (error: any) {
-      alert(`画像のアップロードに失敗しました: ${error.message}`);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -168,20 +130,6 @@ export default function NewDiaryPage() {
         {/* ADD PHOTO エリア */}
         <div className="bg-white p-8 rounded-[32px] shadow-sm border-2 border-dashed border-slate-100 flex flex-col items-center justify-center space-y-2">
           <div className="text-[10px] font-black text-slate-400 tracking-widest uppercase">ADD PHOTO</div>
-          
-          {/* ファイル選択ボタン */}
-          <label className={`cursor-pointer px-4 py-2 rounded-full text-xs font-black text-white shadow-md transition-all mb-2 ${uploading ? 'bg-slate-300' : 'bg-orange-400 hover:bg-orange-500'}`}>
-            {uploading ? "UPLOADING..." : "📷 SELECT IMAGE"}
-            <input 
-              type="file" 
-              accept="image/*" 
-              onChange={handleImageUpload} 
-              disabled={uploading}
-              className="hidden" 
-            />
-          </label>
-          <div className="text-[9px] text-slate-300 font-bold mb-1">- OR URL -</div>
-
           <input 
             type="text" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)}
             placeholder="画像URLを貼り付け"
